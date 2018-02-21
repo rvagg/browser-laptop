@@ -20,6 +20,7 @@ const {getSetting} = require('../../../../js/settings')
 const { Transition, TransitionGroup } = require('react-transition-group')
 const Navigator = require('../navigation/navigator')
 const Frame = require('../frame/frame')
+const GuestInstanceRenderer = require('../frame/guestInstanceRenderer')
 const TabPages = require('../tabs/tabPages')
 const TabsToolbar = require('../tabs/tabsToolbar')
 const FindBar = require('./findbar')
@@ -574,7 +575,6 @@ class Main extends React.Component {
         item.get('frameOrigin') ? activeOrigin === item.get('frameOrigin') : true).size > 0
     props.showFindBar = activeFrame.get('findbarShown') && !activeFrame.get('isFullScreen')
     props.sortedFrames = frameStateUtil.getSortedFrameKeys(currentWindow)
-    props.hasFramePreview = currentWindow.get('previewFrameKey') != null
     props.showDownloadBar = currentWindow.getIn(['ui', 'downloadsToolbar', 'isVisible']) &&
       state.get('downloads') && state.get('downloads').size > 0
     props.title = activeFrame.get('title')
@@ -737,30 +737,14 @@ class Main extends React.Component {
         }
       </div>
       <div className='mainContainer'>
-        <TransitionGroup className={cx({
-          tabContainer: true,
-          hasFramePreview: this.props.hasFramePreview
-        })}>
-          {
-            this.props.sortedFrames.map((frameKey) =>
-              <Transition
-                key={frameKey}
-                // after how long (ms)
-                // should the state 'entering' switch to 'entered'
-                // and also how long should state switch from 'exiting'
-                // to the <Frame /> component actually being removed
-                timeout={150}>
-                {
-                  (transitionState) =>
-                    <Frame
-                      frameKey={frameKey}
-                      transitionState={transitionState}
-                    />
-                }
-              </Transition>
-            )
-          }
-        </TransitionGroup>
+        {
+          this.props.sortedFrames.map((frameKey) =>
+            <Frame
+              frameKey={frameKey}
+            />
+          )
+        }
+        <GuestInstanceRenderer />
       </div>
       {
         this.props.showDownloadBar
