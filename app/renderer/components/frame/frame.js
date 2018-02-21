@@ -79,6 +79,8 @@ class Frame extends React.Component {
     this.notificationCallbacks = {}
     // Counter for detecting PDF URL redirect loops
     this.reloadCounter = {}
+    // TODO: use something more purpose-built than a fake element for event emitting
+    this.tabEventEmitter = document.createElement('div')
   }
 
   get frame () {
@@ -103,10 +105,6 @@ class Frame extends React.Component {
 
   isIntermediateAboutPage () {
     return isIntermediateAboutPage(getBaseUrl(this.props.location))
-  }
-
-  shouldCreateWebview () {
-    return !this.webview
   }
 
   allowRunningWidevinePlugin () {
@@ -149,45 +147,6 @@ class Frame extends React.Component {
     this.expireContentSettings(this.props)
   }
 
-  updateWebview (cb, prevProps = {}) {
-    if (cb && this.runOnDomReady) {
-      // there is already a callback waiting for did-attach
-      // so replace it with this callback because it might be a
-      // mount callback which is a subset of the update callback
-      this.runOnDomReady = cb
-      return
-    }
-
-    // Create the webview dynamically because React doesn't whitelist all
-    // of the attributes we need
-    if (this.shouldCreateWebview()) {
-      this.webview = domUtil.createWebView()
-      this.webview.setAttribute('data-frame-key', this.props.frameKey)
-
-      this.addEventListeners()
-      if (cb) {
-        this.runOnDomReady = cb
-        let didAttachCallback = (e) => {
-          this.webview.removeEventListener(e.type, didAttachCallback)
-          this.runOnDomReady()
-          delete this.runOnDomReady
-        }
-        this.webview.addEventListener('will-attach', () => {
-        })
-        this.webview.addEventListener('did-attach', didAttachCallback, { passive: true })
-      }
-
-      if (!this.props.guestInstanceId || !this.webview.attachGuest(this.props.guestInstanceId)) {
-        // The partition is guaranteed to be initialized by now by the browser process
-        this.webview.setAttribute('partition', frameStateUtil.getPartition(this.frame))
-        this.webview.setAttribute('src', this.props.location)
-      }
-      domUtil.appendChild(this.webviewContainer, this.webview)
-    } else {
-      cb && cb(prevProps)
-    }
-  }
-
   onPropsChanged (prevProps = {}) {
     if (this.props.isActive && !prevProps.isActive && this.props.isFocused) {
       windowActions.setFocusedFrame(this.props.location, this.props.tabId)
@@ -195,7 +154,8 @@ class Frame extends React.Component {
   }
 
   componentDidMount () {
-    this.updateWebview(this.onPropsChanged)
+    this.addEventListeners()
+    this.onPropsChanged()
     if (this.props.activeShortcut) {
       this.handleShortcut()
     }
@@ -254,30 +214,27 @@ class Frame extends React.Component {
 
     this.lastFrame = this.frame.delete('lastAccessedTime')
 
-    const cb = (prevProps = {}) => {
-      this.onPropsChanged(prevProps)
-      if (this.props.isActive && !prevProps.isActive && !this.props.urlBarFocused) {
-        this.webContents.focus()
-      }
-
-      // make sure the webview content updates to
-      // match the fullscreen state of the frame
-      if (prevProps.isFullScreen !== this.props.isFullScreen ||
-        (this.props.isFullScreen && !this.props.isActive)) {
-        if (this.props.isFullScreen && this.props.isActive) {
-          this.enterHtmlFullScreen()
-        } else {
-          this.exitHtmlFullScreen()
-        }
-      }
-    }
-
     // For cross-origin navigation, clear temp approvals
     if (this.props.origin !== prevProps.origin) {
       this.expireContentSettings(prevProps)
     }
 
-    this.updateWebview(cb, prevProps)
+    this.onPropsChanged(prevProps)
+    if (this.props.isActive && !prevProps.isActive && !this.props.urlBarFocused) {
+      this.webContents.focus()
+    }
+
+    // make sure the webview content updates to
+    // match the fullscreen state of the frame
+    if (prevProps.isFullScreen !== this.props.isFullScreen ||
+      (this.props.isFullScreen && !this.props.isActive)) {
+      if (this.props.isFullScreen && this.props.isActive) {
+        this.enterHtmlFullScreen()
+      } else {
+        this.exitHtmlFullScreen()
+      }
+    }
+
   }
 
   handleShortcut () {
@@ -435,13 +392,13 @@ class Frame extends React.Component {
   }
 
   eventListener (event) {
+
     if (event.type === 'destroyed') {
+      console.log('tab destroyed, unregistering remote webcontents event listener')
       this.unregisterEventListener(this.props.tabId)
     }
-
-    if (this.webview) {
-      this.webview.dispatchEvent(event)
-    }
+    console.log(this.props.tabId, event.type)
+    this.tabEventEmitter.dispatchEvent(event)
   }
 
   registerEventListener (tabId) {
@@ -460,6 +417,7 @@ class Frame extends React.Component {
   }
 
   addEventListeners () {
+    console.log(this.props.tabId, 'registering event listeners')
     // Webview also exposes the 'tab-id-changed' event, with e.tabID as the new tabId.
     // We don't handle that event anymore, in favor of tab-replaced-at in the browser process.
     // Keeping this comment here as it is not documented - petemill.
@@ -469,18 +427,19 @@ class Frame extends React.Component {
       this.registerEventListener(this.props.tabId)
     }
 
+    this.tabEventEmitter.addEventListener('tab-id-changed', (e) => {
       if (this.props.tabId !== e.tabID) {
         this.unregisterEventListener(this.props.tabId)
         this.registerEventListener(e.tabID)
       }
-    this.webview.addEventListener('guest-ready', (e) => {
+    this.tabEventEmitter.addEventListener('guest-ready', (e) => {
       if (this.frame.isEmpty()) {
         return
       }
 
       windowActions.frameGuestInstanceIdChanged(this.frame, this.props.guestInstanceId, e.guestInstanceId)
     }, { passive: true })
-    this.webview.addEventListener('content-blocked', (e) => {
+    this.tabEventEmitter.addEventListener('content-blocked', (e) => {
       if (this.frame.isEmpty()) {
         return
       }
@@ -491,13 +450,13 @@ class Frame extends React.Component {
         appActions.autoplayBlocked(this.props.tabId)
       }
     }, { passive: true })
-    this.webview.addEventListener('did-block-run-insecure-content', (e) => {
+    this.tabEventEmitter.addEventListener('did-block-run-insecure-content', (e) => {
       if (this.frame.isEmpty()) {
         return
       }
       windowActions.setBlockedRunInsecureContent(this.frame, e.details[0])
     }, { passive: true })
-    this.webview.addEventListener('context-menu', (e) => {
+    this.tabEventEmitter.addEventListener('context-menu', (e) => {
       if (this.frame.isEmpty()) {
         return
       }
@@ -505,24 +464,24 @@ class Frame extends React.Component {
       e.preventDefault()
       e.stopPropagation()
     })
-    this.webview.addEventListener('update-target-url', (e) => {
+    this.tabEventEmitter.addEventListener('update-target-url', (e) => {
       const downloadBarHeight = domUtil.getStyleConstants('download-bar-height')
       let nearBottom = e.y > (window.innerHeight - 150 - downloadBarHeight)
       let mouseOnLeft = e.x < (window.innerWidth / 2)
       let showOnRight = nearBottom && mouseOnLeft
       windowActions.setLinkHoverPreview(e.url, showOnRight)
     }, { passive: true })
-    this.webview.addEventListener('focus', this.onFocus, { passive: true })
-    this.webview.addEventListener('mouseenter', (e) => {
+    this.tabEventEmitter.addEventListener('focus', this.onFocus, { passive: true })
+    this.tabEventEmitter.addEventListener('mouseenter', (e) => {
       windowActions.onFrameMouseEnter(this.props.tabId)
     }, { passive: true })
-    this.webview.addEventListener('mouseleave', (e) => {
+    this.tabEventEmitter.addEventListener('mouseleave', (e) => {
       windowActions.onFrameMouseLeave(this.props.tabId)
     }, { passive: true })
-    this.webview.addEventListener('will-destroy', (e) => {
+    this.tabEventEmitter.addEventListener('will-destroy', (e) => {
       this.onCloseFrame()
     }, { passive: true })
-    this.webview.addEventListener('page-favicon-updated', (e) => {
+    this.tabEventEmitter.addEventListener('page-favicon-updated', (e) => {
       if (this.frame.isEmpty()) {
         return
       }
@@ -536,24 +495,24 @@ class Frame extends React.Component {
         })
       }
     }, { passive: true })
-    this.webview.addEventListener('show-autofill-settings', (e) => {
+    this.tabEventEmitter.addEventListener('show-autofill-settings', (e) => {
       appActions.createTabRequested({
         url: 'about:autofill',
         active: true
       })
     }, { passive: true })
-    this.webview.addEventListener('show-autofill-popup', (e) => {
+    this.tabEventEmitter.addEventListener('show-autofill-popup', (e) => {
       if (this.frame.isEmpty()) {
         return
       }
       contextMenus.onShowAutofillMenu(e.suggestions, e.rect, this.frame)
     }, { passive: true })
-    this.webview.addEventListener('hide-autofill-popup', (e) => {
+    this.tabEventEmitter.addEventListener('hide-autofill-popup', (e) => {
       if (this.props.isAutFillContextMenu) {
         windowActions.autofillPopupHidden(this.props.tabId)
       }
     }, { passive: true })
-    this.webview.addEventListener('ipc-message', (e) => {
+    this.tabEventEmitter.addEventListener('ipc-message', (e) => {
       let method = () => {}
       switch (e.channel) {
         case messages.GOT_CANVAS_FINGERPRINTING:
@@ -715,7 +674,7 @@ class Frame extends React.Component {
         windowActions.setNavigated(url, this.props.frameKey, true, this.props.tabId)
       }
     }
-    this.webview.addEventListener('security-style-changed', (e) => {
+    this.tabEventEmitter.addEventListener('security-style-changed', (e) => {
       if (this.frame.isEmpty()) {
         return
       }
@@ -755,10 +714,10 @@ class Frame extends React.Component {
         evCert
       })
     }, { passive: true })
-    this.webview.addEventListener('load-start', (e) => {
+    this.tabEventEmitter.addEventListener('load-start', (e) => {
       loadStart(e)
     }, { passive: true })
-    this.webview.addEventListener('did-navigate', (e) => {
+    this.tabEventEmitter.addEventListener('did-navigate', (e) => {
       if (this.props.findbarShown) {
         frameStateUtil.onFindBarHide(this.props.frameKey)
       }
@@ -770,32 +729,32 @@ class Frame extends React.Component {
       const isNewTabPage = getBaseUrl(e.url) === getTargetAboutUrl('about:newtab')
       // Only take focus away from the urlBar if:
       // The tab is active, it's not the new tab page, and the webview isn't already active.
-      if (this.props.isActive && !isNewTabPage && document.activeElement !== this.webview) {
+      if (this.props.isActive && !isNewTabPage) {
         this.webContents.focus()
       }
       if (!this.frame.isEmpty()) {
         windowActions.setNavigated(e.url, this.props.frameKey, false, this.props.tabId)
       }
     }, { passive: true })
-    this.webview.addEventListener('did-fail-provisional-load', (e) => {
+    this.tabEventEmitter.addEventListener('did-fail-provisional-load', (e) => {
       if (e.isMainFrame) {
         loadEnd(false, e.validatedURL, false)
         loadFail(e, true, e.currentURL)
       }
     })
-    this.webview.addEventListener('did-fail-load', (e) => {
+    this.tabEventEmitter.addEventListener('did-fail-load', (e) => {
       if (e.isMainFrame) {
         loadEnd(false, e.validatedURL, false)
         loadFail(e, false, e.validatedURL)
       }
     })
-    this.webview.addEventListener('did-finish-load', (e) => {
+    this.tabEventEmitter.addEventListener('did-finish-load', (e) => {
       loadEnd(true, e.validatedURL, false)
       if (this.props.runInsecureContent) {
         appActions.removeSiteSetting(this.props.origin, 'runInsecureContent', this.props.isPrivate)
       }
     })
-    this.webview.addEventListener('did-navigate-in-page', (e) => {
+    this.tabEventEmitter.addEventListener('did-navigate-in-page', (e) => {
       if (this.frame.isEmpty()) {
         return
       }
@@ -804,7 +763,7 @@ class Frame extends React.Component {
         loadEnd(true, e.url, true)
       }
     })
-    this.webview.addEventListener('enter-html-full-screen', () => {
+    this.tabEventEmitter.addEventListener('enter-html-full-screen', () => {
       if (this.frame.isEmpty()) {
         return
       }
@@ -812,13 +771,13 @@ class Frame extends React.Component {
       // disable the fullscreen warning after 5 seconds
       setTimeout(windowActions.setFullScreen.bind(this, this.props.tabId, undefined, false), 5000)
     })
-    this.webview.addEventListener('leave-html-full-screen', () => {
+    this.tabEventEmitter.addEventListener('leave-html-full-screen', () => {
       if (this.frame.isEmpty()) {
         return
       }
       windowActions.setFullScreen(this.props.tabId, false)
     })
-    this.webview.addEventListener('did-change-theme-color', ({themeColor}) => {
+    this.tabEventEmitter.addEventListener('did-change-theme-color', ({themeColor}) => {
       if (this.frame.isEmpty()) {
         return
       }
@@ -828,7 +787,7 @@ class Frame extends React.Component {
       // the theme color in that case and let the computed theme color take over.
       windowActions.setThemeColor(this.frame, themeColor !== '#000000' ? themeColor : null)
     })
-    this.webview.addEventListener('found-in-page', (e) => {
+    this.tabEventEmitter.addEventListener('found-in-page', (e) => {
       if (this.frame.isEmpty()) {
         return
       }
@@ -849,7 +808,7 @@ class Frame extends React.Component {
       }
     })
     // Handle zoom using Ctrl/Cmd and the mouse wheel.
-    this.webview.addEventListener('mousewheel', this.onMouseWheel.bind(this))
+    this.tabEventEmitter.addEventListener('mousewheel', this.onMouseWheel.bind(this))
   }
 
   onFocus () {
@@ -910,7 +869,6 @@ class Frame extends React.Component {
 
     const props = {}
     // used in renderer
-    props.transitionState = ownProps.transitionState
     props.partition = frameStateUtil.getPartition(frame)
     props.isFullScreen = frame.get('isFullScreen')
     props.isPreview = frame.get('key') === previewFrameKey
@@ -960,51 +918,39 @@ class Frame extends React.Component {
     return props
   }
 
-  getTransitionStateClassName (stateName) {
-    // handle missing data
-    if (!stateName) {
-      return null
-    }
-    // convert Transition element state string to a more consistent css classname
-    return `is${stateName[0].toUpperCase()}${stateName.slice(1)}`
-  }
-
   render () {
-    const transitionClassName = this.getTransitionStateClassName(this.props.transitionState)
-    return <div
-      data-partition={this.props.partition}
-      data-tab-id={this.props.tabId}
-      data-frame-key={this.props.frameKey}
-      data-guest-id={this.props.guestInstanceId}
-      data-test-id='frameWrapper'
-      data-test2-id={this.props.isActive ? 'activeFrame' : null}
-      data-test3-id={this.props.isPreview ? 'previewFrame' : null}
-      className={cx({
-        frameWrapper: true,
-        [this.props.className]: this.props.className,
-        [transitionClassName]: transitionClassName,
-        isPreview: this.props.isPreview,
-        isActive: this.props.isActive,
-        isDefaultNewTabLocation: this.props.isDefaultNewTabLocation,
-        isBlankLocation: this.props.isBlankLocation
-      })}>
-      {
-        this.props.isFullScreen && this.props.showFullScreenWarning
-        ? <FullScreenWarning location={this.props.location} />
-        : null
-      }
-      <div ref={(node) => { this.webviewContainer = node }}
-        className={cx({
-          webviewContainer: true
-        })} />
-      <HrefPreview frameKey={this.props.frameKey} />
-      {
-        this.props.showMessageBox
-        ? <MessageBox
-          tabId={this.props.tabId} />
-        : null
-      }
-    </div>
+    return null
+    // return <div
+    //   data-partition={this.props.partition}
+    //   data-test-id='frameWrapper'
+    //   data-test2-id={this.props.isActive ? 'activeFrame' : null}
+    //   data-test3-id={this.props.isPreview ? 'previewFrame' : null}
+    //   className={cx({
+    //     frameWrapper: true,
+    //     [this.props.className]: this.props.className,
+    //     isPreview: this.props.isPreview,
+    //     isActive: this.props.isActive,
+    //     isDefaultNewTabLocation: this.props.isDefaultNewTabLocation,
+    //     isBlankLocation: this.props.isBlankLocation
+    //   })}>
+    //   {
+    //     this.props.isFullScreen && this.props.showFullScreenWarning
+    //     ? <FullScreenWarning location={this.props.location} />
+    //     : null
+    //   }
+    //   <div
+    //     className={cx({
+    //       webviewContainer: true,
+    //       isPreview: this.props.isPreview
+    //     })} />
+    //   <HrefPreview frameKey={this.props.frameKey} />
+    //   {
+    //     this.props.showMessageBox
+    //     ? <MessageBox
+    //       tabId={this.props.tabId} />
+    //     : null
+    //   }
+    // </div>
   }
 }
 
