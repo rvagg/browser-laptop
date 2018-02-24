@@ -432,6 +432,7 @@ class Frame extends React.Component {
         this.unregisterEventListener(this.props.tabId)
         this.registerEventListener(e.tabID)
       }
+    })
     this.tabEventEmitter.addEventListener('guest-ready', (e) => {
       if (this.frame.isEmpty()) {
         return
