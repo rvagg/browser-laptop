@@ -194,11 +194,10 @@ const frameGuestInstanceIdChanged = (state, action) => {
   action = makeImmutable(action)
   const oldGuestInstanceId = action.get('oldGuestInstanceId')
   const newGuestInstanceId = action.get('newGuestInstanceId')
-
   if (oldGuestInstanceId === newGuestInstanceId) {
     return state
   }
-
+  console.log('Frame guest instance id changed', { oldGuestInstanceId, newGuestInstanceId })
   return state.mergeIn(['frames', frameStateUtil.getFrameIndex(state, action.getIn(['frameProps', 'key']))], {
     guestInstanceId: newGuestInstanceId
   })
