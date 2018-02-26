@@ -15,6 +15,9 @@ const tabState = require('../../../common/state/tabState')
 const contextMenus = require('../../../../js/contextMenus')
 const imageUtil = require('../../../../js/lib/imageUtil')
 const domUtil = require('../../lib/domUtil')
+const HrefPreview = require('./hrefPreview')
+const MessageBox = require('../common/messageBox')
+const FullScreenWarning = require('./fullScreenWarning')
 
 class GuestInstanceRenderer extends React.Component {
   constructor (props) {
@@ -26,7 +29,10 @@ class GuestInstanceRenderer extends React.Component {
     const activeTab = activeFrame && tabState.getByTabId(state, activeFrame.get('tabId'))
     const props = {
       activeTab,
-      activeFrame
+      activeFrame,
+      guestInstanceId: activeFrame && activeFrame.get('guestInstanceId'),
+      tabId: activeTab && activeTab.get('tabId'),
+      frameKey: activeFrame && activeFrame.get('key')
     }
     return props
   }
@@ -52,7 +58,8 @@ class GuestInstanceRenderer extends React.Component {
         console.log('attaching guest', nextGuestInstanceId)
         this.webview.parentElement.setAttribute('data-active-guest-instance-id', nextGuestInstanceId)
         this.webview.parentElement.setAttribute('data-attacher', 'componentDidUpdate')
-        this.webview.attachGuest(nextGuestInstanceId)
+        this.webview.detachGuest()
+        window.requestAnimationFrame(() => this.webview.attachGuest(nextGuestInstanceId))
       }
     }
   }
@@ -63,6 +70,10 @@ class GuestInstanceRenderer extends React.Component {
     if (this.webview && !this.addedEventListeners) {
       this.addedEventListeners = true
 
+      this.webview.addEventListener('focus', this.onFocus.bind(this), { passive: true })
+      this.webview.addEventListener('will-destroy', () => {
+        this.webview.detachGuest()
+      })
       // this.webview.addEventListener('context-menu', (e) => {
       //   console.log('context menu', e)
       //   contextMenus.onMainContextMenu(e.params, this.props.activeFrame, this.props.activeTab)
@@ -70,55 +81,38 @@ class GuestInstanceRenderer extends React.Component {
       //   e.stopPropagation()
       // })
 
-      // this.webview.addEventListener('update-target-url', (e) => {
-      //   console.log('update target url')
-      //   const downloadBarHeight = domUtil.getStyleConstants('download-bar-height')
-      //   let nearBottom = e.y > (window.innerHeight - 150 - downloadBarHeight)
-      //   let mouseOnLeft = e.x < (window.innerWidth / 2)
-      //   let showOnRight = nearBottom && mouseOnLeft
-      //   windowActions.setLinkHoverPreview(e.url, showOnRight)
-      // }, { passive: true })
+      this.webview.addEventListener('update-target-url', (e) => {
+        console.log('update target url')
+        const downloadBarHeight = domUtil.getStyleConstants('download-bar-height')
+        let nearBottom = e.y > (window.innerHeight - 150 - downloadBarHeight)
+        let mouseOnLeft = e.x < (window.innerWidth / 2)
+        let showOnRight = nearBottom && mouseOnLeft
+        windowActions.setLinkHoverPreview(e.url, showOnRight)
+      }, { passive: true })
 
-      // this.webview.addEventListener('mouseenter', (e) => {
-      //   windowActions.onFrameMouseEnter()
-      // }, { passive: true })
+      this.webview.addEventListener('mouseenter', (e) => {
+        windowActions.onFrameMouseEnter()
+      }, { passive: true })
 
-      // this.webview.addEventListener('mouseleave', (e) => {
-      //   windowActions.onFrameMouseLeave()
-      // }, { passive: true })
-
-      // this.webview.addEventListener('page-favicon-updated', (e) => {
-      //   // TODO: handle in browser
-      //   // TODO: can get race condition and set wrong favicon
-      //   if (e.favicons &&
-      //       e.favicons.length > 0 &&
-      //       // Favicon changes lead to recalculation of top site data so only fire
-      //       // this when needed.  Some sites update favicons very frequently.
-      //       e.favicons[0] !== this.props.activeFrame.get('icon')) {
-      //     imageUtil.getWorkingImageUrl(e.favicons[0], (error) => {
-      //       windowActions.setFavicon(this.props.activeFrame, error ? null : e.favicons[0])
-      //     })
-      //   }
-      // }, { passive: true })
-
-      // this.webview.addEventListener('show-autofill-popup', (e) => {
-      //   if (this.frame.isEmpty()) {
-      //     return
-      //   }
-      //   contextMenus.onShowAutofillMenu(e.suggestions, e.rect, this.frame, e.target.getBoundingClientRect())
-      // }, { passive: true })
-
-      // this.webview.addEventListener('hide-autofill-popup', (e) => {
-      //   if (this.props.isAutFillContextMenu) {
-      //     windowActions.autofillPopupHidden(this.props.tabId)
-      //   }
-      // }, { passive: true })
+      this.webview.addEventListener('mouseleave', (e) => {
+        windowActions.onFrameMouseLeave()
+      }, { passive: true })
     }
   }
 
+  onFocus () {
+    if (this.props.activeFrame && !this.props.activeFrame.isEmpty()) {
+      windowActions.setTabPageIndexByFrame(this.props.activeFrame)
+      windowActions.tabOnFocus(this.props.tabId)
+    }
+
+    windowActions.setContextMenuDetail()
+    windowActions.setPopupWindowDetail()
+  }
+
   render () {
-    const { activeFrame } = this.props
-  //  console.log('rendering active frame', activeFrame)
+    const { tabId, frameKey } = this.props
+    if (tabId == null || frameKey == null) return null
     return (
       <div
         className={css(styles.guestInstanceRenderer)}
@@ -127,6 +121,13 @@ class GuestInstanceRenderer extends React.Component {
           className={css(styles.guestInstanceRenderer__webview)}
           ref={ref => this.setWebviewRef(ref)}
         />
+        <HrefPreview frameKey={frameKey} />
+        {
+          this.props.showMessageBox
+          ? <MessageBox
+            tabId={tabId} />
+          : null
+        }
       </div>
     )
   }

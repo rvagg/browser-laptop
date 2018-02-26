@@ -74,7 +74,6 @@ class Frame extends React.Component {
     super(props)
     this.onCloseFrame = this.onCloseFrame.bind(this)
     this.onUpdateWheelZoom = debounce(this.onUpdateWheelZoom.bind(this), 20)
-    this.onFocus = this.onFocus.bind(this)
     // Maps notification message to its callback
     this.notificationCallbacks = {}
     // Counter for detecting PDF URL redirect loops
@@ -458,6 +457,7 @@ class Frame extends React.Component {
       windowActions.setBlockedRunInsecureContent(this.frame, e.details[0])
     }, { passive: true })
     this.tabEventEmitter.addEventListener('context-menu', (e) => {
+      console.log('cont menu')
       if (this.frame.isEmpty()) {
         return
       }
@@ -466,23 +466,19 @@ class Frame extends React.Component {
       e.stopPropagation()
     })
     this.tabEventEmitter.addEventListener('update-target-url', (e) => {
+      console.log('frame up tar ur')
       const downloadBarHeight = domUtil.getStyleConstants('download-bar-height')
       let nearBottom = e.y > (window.innerHeight - 150 - downloadBarHeight)
       let mouseOnLeft = e.x < (window.innerWidth / 2)
       let showOnRight = nearBottom && mouseOnLeft
       windowActions.setLinkHoverPreview(e.url, showOnRight)
     }, { passive: true })
-    this.tabEventEmitter.addEventListener('focus', this.onFocus, { passive: true })
-    this.tabEventEmitter.addEventListener('mouseenter', (e) => {
-      windowActions.onFrameMouseEnter(this.props.tabId)
-    }, { passive: true })
-    this.tabEventEmitter.addEventListener('mouseleave', (e) => {
-      windowActions.onFrameMouseLeave(this.props.tabId)
-    }, { passive: true })
+
     this.tabEventEmitter.addEventListener('will-destroy', (e) => {
       this.onCloseFrame()
     }, { passive: true })
     this.tabEventEmitter.addEventListener('page-favicon-updated', (e) => {
+      console.log('page-fav-upd')
       if (this.frame.isEmpty()) {
         return
       }
@@ -812,16 +808,6 @@ class Frame extends React.Component {
     this.tabEventEmitter.addEventListener('mousewheel', this.onMouseWheel.bind(this))
   }
 
-  onFocus () {
-    if (!this.frame.isEmpty()) {
-      windowActions.setTabPageIndexByFrame(this.frame)
-      windowActions.tabOnFocus(this.props.tabId)
-    }
-
-    windowActions.setContextMenuDetail()
-    windowActions.setPopupWindowDetail()
-  }
-
   onFindAgain (forward) {
     if (!this.props.findbarShown) {
       windowActions.setFindbarShown(this.props.frameKey, true)
@@ -944,13 +930,13 @@ class Frame extends React.Component {
     //       webviewContainer: true,
     //       isPreview: this.props.isPreview
     //     })} />
-    //   <HrefPreview frameKey={this.props.frameKey} />
-    //   {
-    //     this.props.showMessageBox
-    //     ? <MessageBox
-    //       tabId={this.props.tabId} />
-    //     : null
-    //   }
+      //   <HrefPreview frameKey={this.props.frameKey} />
+      //   {
+      //     this.props.showMessageBox
+      //     ? <MessageBox
+      //       tabId={this.props.tabId} />
+      //     : null
+      //   }
     // </div>
   }
 }
