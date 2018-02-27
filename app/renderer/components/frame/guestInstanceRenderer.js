@@ -53,6 +53,12 @@ class GuestInstanceRenderer extends React.Component {
       this.webview.parentElement.setAttribute('data-active-guest-instance-id', nextGuestInstanceId)
       this.webview.parentElement.setAttribute('data-attacher', 'componentDidMount')
       this.webview.attachGuest(nextGuestInstanceId)
+      window.requestAnimationFrame(() => {
+        this.webview.style.visibility = 'hidden'
+        window.requestAnimationFrame(() => {
+          this.webview.style.visibility = ''
+        })
+      })
     }
   }
 
