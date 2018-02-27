@@ -22,23 +22,32 @@ const FullScreenWarning = require('./fullScreenWarning')
 class GuestInstanceRenderer extends React.Component {
   constructor (props) {
     super(props)
+    this.setWebviewRef = this.setWebviewRef.bind(this)
+    // required because of calling detach() on the original contents, see below
+    console.log('making a new single-webview for tab', props.tabId)
+    this.tabId = props.tabId
+    this.frameKey = props.frameKey
+    this.guestInstanceId = props.guestInstanceId
   }
 
   mergeProps (state, ownProps) {
-    const activeFrame = frameStateUtil.getActiveFrame(state.get('currentWindow'))
-    const activeTab = activeFrame && tabState.getByTabId(state, activeFrame.get('tabId'))
+    const frameKey = ownProps.frameKey
+    const frame = frameStateUtil.getFrameByKey(state.get('currentWindow'), frameKey)
+    const tab = frame && tabState.getByTabId(state, frame.get('tabId'))
+
     const props = {
-      activeTab,
-      activeFrame,
-      guestInstanceId: activeFrame && activeFrame.get('guestInstanceId'),
-      tabId: activeTab && activeTab.get('tabId'),
-      frameKey: activeFrame && activeFrame.get('key')
+      tab,
+      frame,
+      guestInstanceId: frame && frame.get('guestInstanceId'),
+      tabId: tab && tab.get('tabId'),
+      frameKey: frameKey,
+      transitionState: ownProps.transitionState
     }
     return props
   }
 
   componentDidMount () {
-    const nextGuestInstanceId = this.props.activeFrame && this.props.activeFrame.get('guestInstanceId')
+    const nextGuestInstanceId = this.props.frame && this.props.frame.get('guestInstanceId')
     if (nextGuestInstanceId != null && this.webview) {
       console.log('attaching guest (mount)', nextGuestInstanceId)
       this.webview.parentElement.setAttribute('data-active-guest-instance-id', nextGuestInstanceId)
@@ -50,17 +59,16 @@ class GuestInstanceRenderer extends React.Component {
   componentDidUpdate (prevProps, prevState) {
     // attach new guest instance
 //    console.log('frame componentDidUpdate', {prevProps, props: this.props}, this.webview)
-    if (this.webview && prevProps.activeFrame !== this.props.activeFrame) {
-      console.log('single-webview active tab Id', this.props.activeFrame.get('tabId'))
-      const prevGuestInstanceId = prevProps.activeFrame && prevProps.activeFrame.get('guestInstanceId')
-      const nextGuestInstanceId = this.props.activeFrame && this.props.activeFrame.get('guestInstanceId')
-      if (prevGuestInstanceId !== nextGuestInstanceId) {
-        console.log('attaching guest', nextGuestInstanceId)
-        this.webview.parentElement.setAttribute('data-active-guest-instance-id', nextGuestInstanceId)
-        this.webview.parentElement.setAttribute('data-attacher', 'componentDidUpdate')
-        this.webview.detachGuest()
-        window.requestAnimationFrame(() => this.webview.attachGuest(nextGuestInstanceId))
-      }
+    // if (this.webview && prevProps.frame !== this.props.frame) {
+    // //  console.log('single-webview active tab Id', this.props.frame.get('tabId'))
+    //   const prevGuestInstanceId = prevProps.frame && prevProps.frame.get('guestInstanceId')
+    //   const nextGuestInstanceId = this.props.frame && this.props.frame.get('guestInstanceId')
+    //   if (prevGuestInstanceId !== nextGuestInstanceId) {
+    //     console.log(this.tabId, 'Guest instance ID changed, but not attaching...', nextGuestInstanceId)
+    //     this.webview.parentElement.setAttribute('data-active-guest-instance-id', nextGuestInstanceId)
+    //     this.webview.parentElement.setAttribute('data-attacher', 'componentDidUpdate')
+    //   }
+    // }
     }
   }
 
@@ -136,10 +144,23 @@ class GuestInstanceRenderer extends React.Component {
 const styles = StyleSheet.create({
   guestInstanceRenderer: {
     display: 'flex',
-    flex: 1
+    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    bottom: 0,
+    right: 0,
+    zIndex: 100,
+    '--frame-bg': '#fff'
   },
+
+  guestInstanceRenderer_exiting: {
+    zIndex: 110
+  },
+
   guestInstanceRenderer__webview: {
-    flex: 1
+    flex: 1,
+    backgroundColor: 'var(--frame-bg)'
   }
 })
 
