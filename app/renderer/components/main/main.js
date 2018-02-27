@@ -544,6 +544,13 @@ class Main extends React.Component {
 
     const props = {}
     // used in renderer
+
+    props.activeFrameKey = activeFrame.get('key')
+    if (window.activeFrameKey !== props.activeFrameKey) {
+      window.activeFrameKey = props.activeFrameKey
+      console.log('main: active frame key changed', props.activeFrameKey)
+    }
+
     props.isFullScreen = activeFrame.get('isFullScreen', false)
     props.isMaximized = isMaximized(state) || isFullScreen(state)
     props.captionButtonsVisible = isWindows
@@ -574,7 +581,7 @@ class Main extends React.Component {
     props.showNotificationBar = activeOrigin && state.get('notifications').filter((item) =>
         item.get('frameOrigin') ? activeOrigin === item.get('frameOrigin') : true).size > 0
     props.showFindBar = activeFrame.get('findbarShown') && !activeFrame.get('isFullScreen')
-    props.sortedFrames = frameStateUtil.getSortedFrameKeys(currentWindow)
+    props.frameKeys = frameStateUtil.getFrameKeys(currentWindow)
     props.showDownloadBar = currentWindow.getIn(['ui', 'downloadsToolbar', 'isVisible']) &&
       state.get('downloads') && state.get('downloads').size > 0
     props.title = activeFrame.get('title')
@@ -738,13 +745,31 @@ class Main extends React.Component {
       </div>
       <div className='mainContainer'>
         {
-          this.props.sortedFrames.map((frameKey) =>
+          this.props.frameKeys.map((frameKey) =>
             <Frame
               frameKey={frameKey}
             />
           )
         }
-        <GuestInstanceRenderer />
+        <TransitionGroup className='tabContainer'>
+          {
+            this.props.activeFrameKey && [
+            <Transition
+              key={this.props.activeFrameKey}
+              // after how long (ms)
+              // should the state 'entering' switch to 'entered'
+              // and also how long should state switch from 'exiting'
+              // to the <Frame /> component actually being removed
+              timeout={300}>
+              {
+                (transitionState) =>
+                  <GuestInstanceRenderer frameKey={this.props.activeFrameKey} transitionState={transitionState} />
+              }
+            </Transition>
+            ]
+          }
+        </TransitionGroup>
+
       </div>
       {
         this.props.showDownloadBar
