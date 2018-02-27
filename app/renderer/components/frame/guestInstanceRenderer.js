@@ -115,8 +115,8 @@ class GuestInstanceRenderer extends React.Component {
   }
 
   onFocus () {
-    if (this.props.activeFrame && !this.props.activeFrame.isEmpty()) {
-      windowActions.setTabPageIndexByFrame(this.props.activeFrame)
+    if (this.props.frame && !this.props.frame.isEmpty()) {
+      windowActions.setTabPageIndexByFrame(this.props.frame)
       windowActions.tabOnFocus(this.props.tabId)
     }
 
