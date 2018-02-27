@@ -1,10 +1,9 @@
 const React = require('react')
 const {StyleSheet, css} = require('aphrodite/no-important')
+
 const ReduxComponent = require('../reduxComponent')
 
 // Actions
-const appActions = require('../../../../js/actions/appActions')
-const tabActions = require('../../../common/actions/tabActions')
 const windowActions = require('../../../../js/actions/windowActions')
 
 // state
@@ -12,12 +11,37 @@ const frameStateUtil = require('../../../../js/state/frameStateUtil')
 const tabState = require('../../../common/state/tabState')
 
 // utils
-const contextMenus = require('../../../../js/contextMenus')
-const imageUtil = require('../../../../js/lib/imageUtil')
 const domUtil = require('../../lib/domUtil')
 const HrefPreview = require('./hrefPreview')
 const MessageBox = require('../common/messageBox')
-const FullScreenWarning = require('./fullScreenWarning')
+
+// HACK
+// This is a workaround for https://github.com/brave/muon/issues/510
+// By attaching the webview to a different webcontents before it is removed from the DOM,
+// it will no longer be associated with the tab's WebContents, and will no longer destroy
+// that Tab/WebContents when removed.
+async function deactivateWebview (webview) {
+  // create another webview
+  const w = document.createElement('webview')
+  w.style.position = 'absolute'
+  w.style.bottom = '-10px'
+  w.style.left = '-10px'
+  w.style.height = '1px'
+  w.style.width = '1px'
+  w.src = 'about:blank'
+  const t0 = window.performance.now()
+  // did-attach is the quickest event to get getGuestId, short of await/setTimeout for when getGuestId is there
+  w.addEventListener('did-attach', (e) => {
+    const guestId = w.getGuestId()
+    console.log('temporary guest for replacing webview tab contents is ready', guestId, `${window.performance.now() - t0}ms`)
+    // attach the temp contents to the 'old' webview
+    webview.attachGuest(guestId)
+    window.requestAnimationFrame(() => {
+      w.remove()
+    })
+  })
+  document.body.appendChild(w)
+}
 
 class GuestInstanceRenderer extends React.Component {
   constructor (props) {
@@ -77,6 +101,11 @@ class GuestInstanceRenderer extends React.Component {
     //     this.webview.parentElement.setAttribute('data-attacher', 'componentDidUpdate')
     //   }
     // }
+    if (this.props.transitionState === 'exiting' && prevProps.transitionState !== this.props.transitionState) {
+      console.log(this.tabId, 'detaching webview now')
+      setTimeout(() => {
+        deactivateWebview(this.webview)
+      }, 50)
     }
   }
 
