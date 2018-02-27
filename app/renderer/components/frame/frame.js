@@ -237,6 +237,7 @@ class Frame extends React.Component {
   }
 
   handleShortcut () {
+    console.log('handle shortcut', this.props.activeShortcut, this.props.tabId)
     switch (this.props.activeShortcut) {
       case 'stop':
         this.webContents.stop()
@@ -426,7 +427,12 @@ class Frame extends React.Component {
       this.registerEventListener(this.props.tabId)
     }
 
+    this.tabEventEmitter.addEventListener('tab-replaced-at', (e, windowId, tabIndex, newContents) => {
+      console.log(this.props.tabId, 'frame tab replaced at', newContents)
+    })
+
     this.tabEventEmitter.addEventListener('tab-id-changed', (e) => {
+      console.log('frame tab id changed')
       if (this.props.tabId !== e.tabID) {
         this.unregisterEventListener(this.props.tabId)
         this.registerEventListener(e.tabID)
@@ -466,7 +472,6 @@ class Frame extends React.Component {
       e.stopPropagation()
     })
     this.tabEventEmitter.addEventListener('update-target-url', (e) => {
-      console.log('frame up tar ur')
       const downloadBarHeight = domUtil.getStyleConstants('download-bar-height')
       let nearBottom = e.y > (window.innerHeight - 150 - downloadBarHeight)
       let mouseOnLeft = e.x < (window.innerWidth / 2)
