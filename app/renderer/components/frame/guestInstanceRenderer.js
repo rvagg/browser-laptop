@@ -59,6 +59,8 @@ class GuestInstanceRenderer extends React.Component {
           this.webview.style.visibility = ''
         })
       })
+    } else {
+      console.log('could not attach on mount', this.props.frame.toJS(), this.webview)
     }
   }
 
@@ -79,24 +81,39 @@ class GuestInstanceRenderer extends React.Component {
   }
 
   setWebviewRef (ref) {
-//    console.log('single-webview ref', this.webview)
-    this.webview = ref
-    if (this.webview && !this.addedEventListeners) {
-      this.addedEventListeners = true
-
+    // first time, create the webview
+    if (ref && !this.webview) {
+      console.log(this.tabId, 'single-webview creating', ref)
+      // create webview
+      this.webview = document.createElement('webview')
+      this.webview.classList.add(css(styles.guestInstanceRenderer__webview))
+      ref.appendChild(this.webview)
+      // attach event listeners
       this.webview.addEventListener('focus', this.onFocus.bind(this), { passive: true })
       this.webview.addEventListener('will-destroy', () => {
-        this.webview.detachGuest()
+        console.log(this.tabId, 'old webview will-destroy')
+      //  this.webview.detachGuest()
       })
       // this.webview.addEventListener('context-menu', (e) => {
       //   console.log('context menu', e)
-      //   contextMenus.onMainContextMenu(e.params, this.props.activeFrame, this.props.activeTab)
+      //   contextMenus.onMainContextMenu(e.params, this.props.frame, this.props.tab)
       //   e.preventDefault()
       //   e.stopPropagation()
       // })
+      // this.webview.addEventListener('tab-id-changed', (e, tabId) => {
+      //   console.log(this.tabId, 'webview tabid changed', e.tabID)
+      //   remote.getWebContents(e.tabID, (webContents) => {
 
+      //     console.log(tabId, 'tab-id-changed, attaching new guest', webContents && webContents.guestInstanceId)
+      //     if (webContents && this.guestInstanceId !== webContents.guestInstanceId) {
+      //     //  this.webview.attachGuest(webContents.guestInstanceId)
+      //     }
+      //   })
+      // })
+      // this.webview.addEventListener('tab-replaced-at', (e, tabId) => {
+      //   console.log('tab-replaced-at')
+      // })
       this.webview.addEventListener('update-target-url', (e) => {
-        console.log('update target url')
         const downloadBarHeight = domUtil.getStyleConstants('download-bar-height')
         let nearBottom = e.y > (window.innerHeight - 150 - downloadBarHeight)
         let mouseOnLeft = e.x < (window.innerWidth / 2)
@@ -111,6 +128,8 @@ class GuestInstanceRenderer extends React.Component {
       this.webview.addEventListener('mouseleave', (e) => {
         windowActions.onFrameMouseLeave()
       }, { passive: true })
+    } else {
+      console.log(this.tabId, 'set ref fail', ref, this.webview)
     }
   }
 
@@ -129,12 +148,11 @@ class GuestInstanceRenderer extends React.Component {
     if (tabId == null || frameKey == null) return null
     return (
       <div
-        className={css(styles.guestInstanceRenderer)}
+        className={css(
+          styles.guestInstanceRenderer
+        )}
+        ref={this.setWebviewRef}
         >
-        <webview
-          className={css(styles.guestInstanceRenderer__webview)}
-          ref={ref => this.setWebviewRef(ref)}
-        />
         <HrefPreview frameKey={frameKey} />
         {
           this.props.showMessageBox
