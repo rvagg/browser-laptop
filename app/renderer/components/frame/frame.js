@@ -16,9 +16,6 @@ const getSetting = require('../../../../js/settings').getSetting
 
 // Components
 const ReduxComponent = require('../reduxComponent')
-const FullScreenWarning = require('./fullScreenWarning')
-const HrefPreview = require('./hrefPreview')
-const MessageBox = require('../common/messageBox')
 
 // Store
 const windowStore = require('../../../../js/stores/windowStore')
@@ -29,12 +26,10 @@ const contextMenuState = require('../../../common/state/contextMenuState')
 const siteSettings = require('../../../../js/state/siteSettings')
 const siteSettingsState = require('../../../common/state/siteSettingsState')
 const tabState = require('../../../common/state/tabState')
-const tabMessageBoxState = require('../../../common/state/tabMessageBoxState')
 
 // Utils
 const frameStateUtil = require('../../../../js/state/frameStateUtil')
 const UrlUtil = require('../../../../js/lib/urlutil')
-const cx = require('../../../../js/lib/classSet')
 const urlParse = require('../../../common/urlParse')
 const contextMenus = require('../../../../js/contextMenus')
 const domUtil = require('../../lib/domUtil')
@@ -72,7 +67,6 @@ function isPDFJSURL (url) {
 class Frame extends React.Component {
   constructor (props) {
     super(props)
-    this.onCloseFrame = this.onCloseFrame.bind(this)
     this.onUpdateWheelZoom = debounce(this.onUpdateWheelZoom.bind(this), 20)
     // Maps notification message to its callback
     this.notificationCallbacks = {}
@@ -92,10 +86,6 @@ class Frame extends React.Component {
       return undefined
     }
     return appStoreRenderer.state.get('tabs').find((tab) => tab.get('tabId') === frame.get('tabId'))
-  }
-
-  onCloseFrame () {
-    windowActions.closeFrame(this.props.frameKey)
   }
 
   isAboutPage () {
@@ -219,7 +209,7 @@ class Frame extends React.Component {
     }
 
     this.onPropsChanged(prevProps)
-    if (this.props.isActive && !prevProps.isActive && !this.props.urlBarFocused) {
+    if (this.webContents && this.props.isActive && !prevProps.isActive && !this.props.urlBarFocused) {
       this.webContents.focus()
     }
 
@@ -233,7 +223,6 @@ class Frame extends React.Component {
         this.exitHtmlFullScreen()
       }
     }
-
   }
 
   handleShortcut () {
@@ -296,7 +285,11 @@ class Frame extends React.Component {
         windowActions.setFindbarShown(this.props.frameKey, true)
         break
       case 'focus-webview':
-        setImmediate(() => this.webContents.focus())
+        setImmediate(() => {
+          if (this.webContents) {
+            this.webContents.focus()
+          }
+        })
         break
       case 'copy':
         let selection = window.getSelection()
@@ -392,12 +385,11 @@ class Frame extends React.Component {
   }
 
   eventListener (event) {
-
     if (event.type === 'destroyed') {
       console.log('tab destroyed, unregistering remote webcontents event listener')
       this.unregisterEventListener(this.props.tabId)
     }
-    console.log(this.props.tabId, event.type)
+    console.debug(this.props.tabId, event.type)
     this.tabEventEmitter.dispatchEvent(event)
   }
 
@@ -442,8 +434,12 @@ class Frame extends React.Component {
       if (this.frame.isEmpty()) {
         return
       }
-
-      windowActions.frameGuestInstanceIdChanged(this.frame, this.props.guestInstanceId, e.guestInstanceId)
+      if (this.props.guestInstanceId !== e.guestInstanceId) {
+        console.warn('[disabled] wanted to change guest from ', this.props.guestInstanceId, 'to', e.guestInstanceId)
+        // (petemill) this is disabled as it was changing guest IDs of some frames to the exact same as other frames
+        // ...better that this is controlled by the browser process / app state
+        // windowActions.frameGuestInstanceIdChanged(this.frame, this.props.guestInstanceId, e.guestInstanceId)
+      }
     }, { passive: true })
     this.tabEventEmitter.addEventListener('content-blocked', (e) => {
       if (this.frame.isEmpty()) {
@@ -479,9 +475,6 @@ class Frame extends React.Component {
       windowActions.setLinkHoverPreview(e.url, showOnRight)
     }, { passive: true })
 
-    this.tabEventEmitter.addEventListener('will-destroy', (e) => {
-//      this.onCloseFrame()
-    }, { passive: true })
     this.tabEventEmitter.addEventListener('page-favicon-updated', (e) => {
       console.log('page-fav-upd')
       if (this.frame.isEmpty()) {
@@ -731,7 +724,7 @@ class Frame extends React.Component {
       const isNewTabPage = getBaseUrl(e.url) === getTargetAboutUrl('about:newtab')
       // Only take focus away from the urlBar if:
       // The tab is active, it's not the new tab page, and the webview isn't already active.
-      if (this.props.isActive && !isNewTabPage) {
+      if (this.props.isActive && !isNewTabPage && this.webContents) {
         this.webContents.focus()
       }
       if (!this.frame.isEmpty()) {
@@ -861,16 +854,10 @@ class Frame extends React.Component {
 
     const props = {}
     // used in renderer
-    props.partition = frameStateUtil.getPartition(frame)
     props.isFullScreen = frame.get('isFullScreen')
-    props.isPreview = frame.get('key') === previewFrameKey
     props.isActive = frameStateUtil.isFrameKeyActive(currentWindow, frame.get('key'))
-    props.showFullScreenWarning = frame.get('showFullScreenWarning')
     props.location = location
-    props.isDefaultNewTabLocation = location === 'about:newtab'
-    props.isBlankLocation = location === 'about:blank'
     props.tabId = tabId
-    props.showMessageBox = tabMessageBoxState.hasMessageBoxDetail(state, tabId)
     props.isFocused = isFocused(state)
 
     // used in other functions
@@ -925,23 +912,9 @@ class Frame extends React.Component {
     //     isDefaultNewTabLocation: this.props.isDefaultNewTabLocation,
     //     isBlankLocation: this.props.isBlankLocation
     //   })}>
-    //   {
-    //     this.props.isFullScreen && this.props.showFullScreenWarning
-    //     ? <FullScreenWarning location={this.props.location} />
-    //     : null
-    //   }
-    //   <div
-    //     className={cx({
-    //       webviewContainer: true,
-    //       isPreview: this.props.isPreview
-    //     })} />
-      //   <HrefPreview frameKey={this.props.frameKey} />
-      //   {
-      //     this.props.showMessageBox
-      //     ? <MessageBox
-      //       tabId={this.props.tabId} />
-      //     : null
-      //   }
+
+
+
     // </div>
   }
 }
