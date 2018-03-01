@@ -17,7 +17,6 @@ const contextMenus = require('../../../../js/contextMenus')
 const {getSetting} = require('../../../../js/settings')
 
 // Components
-const { Transition, TransitionGroup } = require('react-transition-group')
 const Navigator = require('../navigation/navigator')
 const Frame = require('../frame/frame')
 const GuestInstanceRenderer = require('../frame/guestInstanceRenderer')
@@ -43,6 +42,9 @@ const ContextMenu = require('../common/contextMenu/contextMenu')
 const PopupWindow = require('./popupWindow')
 const NoScriptInfo = require('./noScriptInfo')
 const CheckDefaultBrowserDialog = require('./checkDefaultBrowserDialog')
+const HrefPreview = require('../frame/hrefPreview')
+const MessageBox = require('../common/messageBox')
+const FullScreenWarning = require('../frame/fullScreenWarning')
 
 // Constants
 const appConfig = require('../../../../js/constants/appConfig')
@@ -552,6 +554,7 @@ class Main extends React.Component {
     }
 
     props.isFullScreen = activeFrame.get('isFullScreen', false)
+    props.showFullScreenWarning = activeFrame.get('showFullScreenWarning')
     props.isMaximized = isMaximized(state) || isFullScreen(state)
     props.captionButtonsVisible = isWindows
     props.showContextMenu = currentWindow.has('contextMenuDetail')
@@ -747,29 +750,24 @@ class Main extends React.Component {
         {
           this.props.frameKeys.map((frameKey) =>
             <Frame
+              key={frameKey}
               frameKey={frameKey}
             />
           )
         }
-        <TransitionGroup className='tabContainer'>
-          {
-            this.props.activeFrameKey && [
-            <Transition
-              key={this.props.activeFrameKey}
-              // after how long (ms)
-              // should the state 'entering' switch to 'entered'
-              // and also how long should state switch from 'exiting'
-              // to the <Frame /> component actually being removed
-              timeout={300}>
-              {
-                (transitionState) =>
-                  <GuestInstanceRenderer frameKey={this.props.activeFrameKey} transitionState={transitionState} />
-              }
-            </Transition>
-            ]
-          }
-        </TransitionGroup>
-
+        {
+          this.props.isFullScreen && this.props.showFullScreenWarning
+          ? <FullScreenWarning location={this.props.location} />
+          : null
+        }
+        <GuestInstanceRenderer frameKey={this.props.activeFrameKey} />
+        <HrefPreview frameKey={this.props.activeFrameKey} />
+        {
+          this.props.showMessageBox
+          ? <MessageBox
+            tabId={this.props.tabId} />
+          : null
+        }
       </div>
       {
         this.props.showDownloadBar

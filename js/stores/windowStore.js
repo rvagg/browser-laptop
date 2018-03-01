@@ -368,7 +368,7 @@ const doAction = (action) => {
         windowState = windowState.setIn(['ui', 'tabs', 'tabPageIndex'], action.index)
         windowState = windowState.deleteIn(['ui', 'tabs', 'previewTabPageIndex'])
       } else {
-        windowState = frameStateUtil.updateTabPageIndex(windowState, action.frameProps.get('tabId'))
+        windowState = frameStateUtil.updateTabPageIndex(windowState, action.tabId)
       }
       break
     case windowConstants.WINDOW_SET_TAB_HOVER_STATE:
