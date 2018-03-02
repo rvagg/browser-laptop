@@ -79,6 +79,7 @@ const getLocation = (location) => {
 
 const frameReducer = (state, action, immutableAction) => {
   switch (action.actionType) {
+    case appConstants.APP_TAB_REMOVED_FROM_WINDOW:
     case appConstants.APP_TAB_CLOSED: {
       const tabId = immutableAction.get('tabId')
       const frame = frameStateUtil.getFrameByTabId(state, tabId)
@@ -115,6 +116,7 @@ const frameReducer = (state, action, immutableAction) => {
         break
       }
       if (index != null &&
+          index !== -1 &&
           sourceFrameIndex !== index &&
           // Only update the index once the frame is known.
           // If it is not known, it will just happen later on the next update.
@@ -248,9 +250,6 @@ const frameReducer = (state, action, immutableAction) => {
       closedFrames.forEach((frame) => {
         appActions.tabCloseRequested(frame.get('tabId'))
       })
-      break
-    case windowConstants.WINDOW_CLOSE_FRAME:
-      state = closeFrame(state, action)
       break
 
     case windowConstants.WINDOW_SET_FULL_SCREEN:
