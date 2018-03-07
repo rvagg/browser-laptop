@@ -69,11 +69,20 @@ const getTabValue = function (tabId) {
   }
 }
 
+const detachTab = (evt, tabId, index, windowId) => {
+  activeTabHistory.clearTabFromWindow(windowId, tabId)
+  // tell the old window the frame is gone from it
+  // as when it is not attached to a webview, it will not get
+  // a temporary new contents
+  appActions.tabRemovedFromWindow(tabId, windowId)
+}
+
 const updateTab = (tabId, changeInfo = {}) => {
   let tabValue = getTabValue(tabId)
   if (shouldDebugTabEvents) {
     console.log(`Tab [${tabId}] updated from muon. changeInfo:`, changeInfo, 'currentValues:', { newIndex: tabValue && tabValue.get('index'), newActive: tabValue && tabValue.get('active'), windowId: tabValue && tabValue.get('windowId') })
   }
+
   if (tabValue) {
     appActions.tabUpdated(tabValue, makeImmutable(changeInfo))
   }
@@ -645,28 +654,7 @@ const api = {
         appActions.tabWillAttach(tab.getId())
       })
 
-      let tabWindowId = null
-      // 'set-window' fires even when tab does not have a current <webview> guest attachment
-      // 'tab-detached-at' however, does not fire if tab has never been 'attached' before,
-      // so we rely on 'set-window' for telling us when a tab has left one window
-      // and joined another
-      tab.on('set-window', (e, windowWebContents) => {
-        const newWindowId = windowWebContents ? windowWebContents.id : null
-        if (shouldDebugTabEvents) {
-          console.log('set-window, old:', tabWindowId, 'new:', newWindowId)
-        }
-        // detect when tab is moving embedders (doesn't have to yet be attached to a webview)
-        if (tabWindowId && tabWindowId !== newWindowId) {
-          // forget last active trail in window tab
-          // is detaching from
-          activeTabHistory.clearTabFromWindow(tabWindowId, tabId)
-          // tell the old window the frame is gone from it
-          // as when it is not attached to a webview, it will not get
-          // a temporary new contents
-          appActions.tabRemovedFromWindow(tabId, tabWindowId)
-        }
-        tabWindowId = newWindowId
-      })
+      tab.on('tab-detached-at', detachTab)
 
       tab.on('set-active', (sender, isActive) => {
         updateTab(tab.getId(), { active: isActive })
