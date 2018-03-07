@@ -43,14 +43,14 @@ module.exports = class WebviewDisplay {
     // We try to avoid this happening, but it's inveitable, so replace the webview
     // when that happens.
     const onContentsDestroyed = () => {
-      console.log("contents destroyed, removing webview")
+      console.log('contents destroyed, removing webview')
       // no longer attached
       if (this.attachedWebview === webview) {
         this.attachedWebview = null
       }
-      // clean up webview as we won't be using it again
-      // (removal will happen once the next webview is attached)
-      this.webviewsPendingRemoval.push(webview)
+      webview.detachGuest()
+      // return to pool
+      this.webviewPool.push(webview)
       this.ensureWebviewPoolSize()
       webview.removeEventListener('will-destroy', onContentsDestroyed)
     }
@@ -82,7 +82,7 @@ module.exports = class WebviewDisplay {
     // We set it here, before it's ready, just in case we are made inactive before we detach,
     // we won't want to force showing once we do attach.
     const lastAttachedWebview = this.attachedWebview
-    this.webviewsPendingRemoval.push(lastAttachedWebview)
+    //this.webviewsPendingRemoval.push(lastAttachedWebview)
     this.attachedWebview = toAttachWebview
     // let's keep this around until the new one
     const t0 = window.performance.now()
@@ -107,7 +107,8 @@ module.exports = class WebviewDisplay {
       if (lastAttachedWebview) {
         lastAttachedWebview.classList.remove(this.classNameWebviewAttached)
         lastAttachedWebview.detachGuest()
-        // TODO: return to the pool,
+        // return to the pool,
+        this.webviewPool.push(lastAttachedWebview)
         // but for now we remove from DOM to avoid blank attach bug
         console.log('removing last attached webview')
       }
@@ -163,5 +164,4 @@ module.exports = class WebviewDisplay {
       }
     }
   }
-
 }
