@@ -3,6 +3,7 @@ const {StyleSheet, css} = require('aphrodite/no-important')
 
 // Components
 const ReduxComponent = require('../reduxComponent')
+//const WebviewDisplay = require('../../pooledWebviewDisplay')
 const WebviewDisplay = require('../../webviewDisplay')
 
 // Actions
@@ -45,7 +46,9 @@ class GuestInstanceRenderer extends React.Component {
     // attach new guest instance
     if (this.webviewDisplay && this.props.guestInstanceId && prevProps.guestInstanceId !== this.props.guestInstanceId) {
       console.log(`Going to display tab ${this.props.tabId}, guest instance ID ${this.props.guestInstanceId}`)
-      this.webviewDisplay.attachActiveTab(this.props.guestInstanceId)
+      // if (!this.webviewDisplay.isAttached) {
+        this.webviewDisplay.attachActiveTab(this.props.guestInstanceId)
+      // }
     }
   }
 
@@ -68,11 +71,6 @@ class GuestInstanceRenderer extends React.Component {
       containerElement.addEventListener('mouseleave', (e) => {
         windowActions.onFrameMouseLeave()
       }, { passive: true })
-    } else if (this.webviewDisplay) {
-      // handle our component ref is gone, so need to re-create next time
-      console.warn('webview container gone, removing webviewDisplay')
-      this.webviewDisplay.detach()
-      this.webviewDisplay = null
     }
   }
 
