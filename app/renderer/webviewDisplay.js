@@ -22,16 +22,6 @@ module.exports = class SingleWebviewDisplay {
   createWebview () {
     console.log('creating a webview')
     const webview = document.createElement('webview')
-    // webview is not usable if a WebContents is destroyed whilst attached.
-    // We try to avoid this happening, but it's inveitable, so replace the webview
-    // when that happens.
-    const onContentsDestroyed = () => {
-      // no longer attached
-      this.isAttached = false
-      // don't want to destroy contents when attached
-      webview.detachGuest()
-    }
-    webview.addEventListener('will-destroy', onContentsDestroyed)
     return webview
   }
 }
