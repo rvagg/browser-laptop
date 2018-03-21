@@ -66,20 +66,6 @@ module.exports = class WebviewDisplay {
     console.log('creating a webview')
     const webview = document.createElement('webview')
     webview.classList.add(this.classNameWebview)
-    // webview is not usable if a WebContents is destroyed whilst attached.
-    // We try to avoid this happening, but it's inveitable, so replace the webview
-    // when that happens.
-    const onContentsDestroyed = () => {
-      console.log('contents destroyed')
-      // no longer attached
-      if (this.attachedWebview === webview) {
-        this.attachedWebview = null
-      }
-      // webview.detachGuest()
-      // return to pool
-      this.webviewPool.push(webview)
-    }
-    webview.addEventListener('will-destroy', onContentsDestroyed)
     if (this.onFocus) {
       webview.addEventListener('focus', this.onFocus)
     }
