@@ -53,30 +53,28 @@ html,
   box-shadow: 0 -1px 0 rgb(187, 187, 191);
   width: 100%;
   position: relative;
-  // .tabContainer {
-  //   flex-grow: 1;
-  //   position: relative;
-  //   &:after {
-  //     position: absolute;
-  //     content: ' ';
-  //     top: 0;
-  //     left: 0;
-  //     right: 0;
-  //     bottom: 0;
-  //     background: linear-gradient(to top, rgb(28, 27, 27) 0%, rgba(255, 255, 255, .3) 60%);
-  //     display: block;
-  //     opacity: 0;
-  //     transition: opacity .4s ease-in; // TODO: get from theme.tab
-  //     pointer-events: none;
-  //     will-change: opacity;
-  //     z-index: 1100;
-  //   }
-  //   &.hasFramePreview::after {
-  //     transition-timing-function: ease-out; // TODO: get from theme.tab
-  //     transition-duration: .2s; // TODO: get from theme.tab
-  //     opacity: 1;
-  //   }
-  // }
+
+  &:after {
+    position: absolute;
+    content: ' ';
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(to top, rgb(28, 27, 27) 0%, rgba(255, 255, 255, .3) 60%);
+    display: block;
+    opacity: 0;
+    transition: opacity .4s ease-in; // TODO: get from theme.tab
+    pointer-events: none;
+    will-change: opacity;
+    z-index: 1100;
+  }
+  &.hasFramePreview::after {
+    transition-timing-function: ease-out; // TODO: get from theme.tab
+    transition-duration: .2s; // TODO: get from theme.tab
+    opacity: 1;
+  }
+
 
 }
 

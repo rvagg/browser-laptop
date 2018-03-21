@@ -552,6 +552,7 @@ class Main extends React.Component {
       window.activeFrameKey = props.activeFrameKey
       console.log('main: active frame key changed', props.activeFrameKey)
     }
+    props.previewFrameKey = frameStateUtil.getPreviewFrameKey(currentWindow)
 
     props.isFullScreen = activeFrame.get('isFullScreen', false)
     props.showFullScreenWarning = activeFrame.get('showFullScreenWarning')
@@ -746,7 +747,10 @@ class Main extends React.Component {
           : null
         }
       </div>
-      <div className='mainContainer'>
+      <div className={cx({
+        mainContainer: true,
+        hasFramePreview: this.props.previewFrameKey != null
+      })}>
         {
           this.props.frameKeys.map((frameKey) =>
             <Frame
@@ -760,7 +764,7 @@ class Main extends React.Component {
           ? <FullScreenWarning location={this.props.location} />
           : null
         }
-        <GuestInstanceRenderer frameKey={this.props.activeFrameKey} />
+        <GuestInstanceRenderer frameKey={this.props.previewFrameKey != null ? this.props.previewFrameKey : this.props.activeFrameKey} />
         <HrefPreview frameKey={this.props.activeFrameKey} />
         {
           this.props.showMessageBox
