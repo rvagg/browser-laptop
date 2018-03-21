@@ -70,7 +70,7 @@ module.exports = class WebviewDisplay {
     // We try to avoid this happening, but it's inveitable, so replace the webview
     // when that happens.
     const onContentsDestroyed = () => {
-      console.log('contents destroyed, removing webview')
+      console.log('contents destroyed')
       // no longer attached
       if (this.attachedWebview === webview) {
         this.attachedWebview = null
@@ -139,7 +139,7 @@ module.exports = class WebviewDisplay {
     }
 
     // fn for smoothly hiding the previously active view before showing this one
-    const showAttachedView = () => {
+    const showAttachedView = async () => {
       // if (timeoutHandleShowAttachedView === null) {
       //   console.log(`not running show because already done ${window.performance.now() - t0}ms`)
       //   return
@@ -149,7 +149,8 @@ module.exports = class WebviewDisplay {
       // if we have decided to show a different guest in the time it's taken to attach and show
       // then do not show the intermediate, instead detach it and wait for the next attach
       if (guestInstanceId !== this.attachingToGuestInstanceId) {
-        toAttachWebview.detachGuest()
+        console.log('detaching guest from just attached view because it was not the desired guest anymore')
+        await toAttachWebview.detachGuest()
         // if it happens to be the webview which is already being shown
         if (this.attachingToGuestInstanceId === this.activeGuestInstanceId) {
           // release everything and do not continue
@@ -179,9 +180,10 @@ module.exports = class WebviewDisplay {
       // between attach.
       if (lastAttachedWebview) {
         lastAttachedWebview.classList.remove(this.classNameWebviewAttached)
-        lastAttachedWebview.detachGuest()
+        console.log('detaching guest from last attached webview...')
+        await lastAttachedWebview.detachGuest()
         // return to the pool,
-        console.log('returning detached webview to pool')
+        console.log('...finished detach. returning detached webview to pool')
         this.webviewPool.push(lastAttachedWebview)
       }
       this.removePendingWebviews()
