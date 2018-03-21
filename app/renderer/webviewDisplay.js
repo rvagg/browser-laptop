@@ -1,3 +1,21 @@
+function ensurePaintWebviewFirstAttach (webview) {
+  window.requestAnimationFrame(() => {
+    webview.style.display = 'none'
+    window.requestAnimationFrame(() => {
+      webview.style.display = ''
+    })
+  })
+}
+
+function ensurePaintWebviewSubsequentAttach (webview) {
+  window.requestAnimationFrame(() => {
+    webview.style.top = '1px'
+    window.requestAnimationFrame(() => {
+      webview.style.top = ''
+    })
+  })
+}
+
 module.exports = class SingleWebviewDisplay {
   constructor ({containerElement, classNameWebview}) {
     this.isAttached = false
@@ -10,13 +28,14 @@ module.exports = class SingleWebviewDisplay {
     console.log('webviewDisplay: attaching guest id', guestInstanceId)
     this.webview.attachGuest(guestInstanceId)
     this.isAttached = true
-    // workaround for blank view when attaching a new guest
-    window.requestAnimationFrame(() => {
-      this.webview.style.visibility = 'hidden'
-      window.requestAnimationFrame(() => {
-        this.webview.style.visibility = ''
-      })
-    })
+    // TODO(petemill) remove ugly workaround as <webview> will often not paint guest unless
+    // size has changed or forced to.
+    if (!this.isSubsequent) {
+      this.isSubsequent = true
+      ensurePaintWebviewFirstAttach(this.webview)
+    } else {
+      ensurePaintWebviewSubsequentAttach(this.webview)
+    }
   }
 
   createWebview () {

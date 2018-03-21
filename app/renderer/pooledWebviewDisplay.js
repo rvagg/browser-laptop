@@ -1,5 +1,25 @@
 let i = 0
 
+function ensurePaintWebviewFirstAttach (webview, cb = () => {}) {
+  window.requestAnimationFrame(() => {
+    webview.style.display = 'none'
+    window.requestAnimationFrame(() => {
+      webview.style.display = ''
+      window.requestAnimationFrame(cb)
+    })
+  })
+}
+
+function ensurePaintWebviewSubsequentAttach (webview, cb = () => {}) {
+  window.requestAnimationFrame(() => {
+    webview.style.top = '1px'
+    window.requestAnimationFrame(() => {
+      webview.style.top = ''
+      window.requestAnimationFrame(cb)
+    })
+  })
+}
+
 module.exports = class WebviewDisplay {
   constructor ({ containerElement, classNameWebview, classNameWebviewAttached, onFocus, shouldRemoveOnDestroy = false }) {
     if (!containerElement) {
@@ -49,7 +69,7 @@ module.exports = class WebviewDisplay {
       if (this.attachedWebview === webview) {
         this.attachedWebview = null
       }
-      webview.detachGuest()
+      // webview.detachGuest()
       // return to pool
       this.webviewPool.push(webview)
     }
@@ -97,6 +117,7 @@ module.exports = class WebviewDisplay {
       // check if we're still meant to be the primary view
       console.log(`webview showing ${window.performance.now() - t0}ms`)
       if (this.attachedWebview === toAttachWebview) {
+        console.log('class showing')
         toAttachWebview.classList.add(this.classNameWebviewAttached)
       }
       console.groupEnd()
@@ -118,14 +139,15 @@ module.exports = class WebviewDisplay {
     const onToAttachDidAttach = () => {
       toAttachWebview.removeEventListener('did-attach', onToAttachDidAttach)
       console.log(`webview did-attach ${window.performance.now() - t0}ms`)
-      // TODO(petemill) remove ugly workaround as <webview> will not paint guest unless size has changed or forced to
-      window.requestAnimationFrame(() => {
-        toAttachWebview.style.visibility = 'hidden'
-        window.requestAnimationFrame(() => {
-          toAttachWebview.style.visibility = ''
-          window.requestAnimationFrame(showAttachedView)
-        })
-      })
+      // TODO(petemill) remove ugly workaround as <webview>
+      // will often not paint guest unless
+      // size has changed or forced to.
+      if (!toAttachWebview.isSubsequentAttach) {
+        toAttachWebview.isSubsequentAttach = true
+        ensurePaintWebviewFirstAttach(toAttachWebview, showAttachedView)
+      } else {
+        ensurePaintWebviewSubsequentAttach(toAttachWebview, showAttachedView)
+      }
     }
 
     toAttachWebview.addEventListener('did-attach', onToAttachDidAttach)
