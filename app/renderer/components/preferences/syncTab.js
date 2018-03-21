@@ -91,14 +91,14 @@ class SyncTab extends ImmutableComponent {
       {
         this.enabled
           ? <BrowserButton primaryColor
-            l10nId='syncResetButton'
+            l10nId='syncLeaveChainButton'
             testId='clearDataButton'
             onClick={this.props.showOverlay.bind(this, 'syncReset')}
           />
           : <div>
             <BrowserButton primaryColor
               disabled
-              l10nId='syncResetButton'
+              l10nId='syncLeaveChainButton'
               testId='clearDataButton'
             />
             <div data-l10n-id='syncResetDataDisabled' className='settingsListTitle' />
@@ -199,12 +199,6 @@ class SyncTab extends ImmutableComponent {
             </div>
           </div>
           {this.enabled ? this.devicesContent : null}
-          <BrowserButton primaryColor
-            l10nId='syncNewDeviceButton'
-            l10nArgs={{device: this.defaultDeviceName}}
-            testId='syncNewDeviceButton'
-            onClick={this.props.showOverlay.bind(this, 'syncStart')}
-          />
         </SettingsList>
       </div>
     )
@@ -214,10 +208,6 @@ class SyncTab extends ImmutableComponent {
     const devices = this.props.syncData.get('devices')
     if (!devices) { return [] }
     return devices.map((device, id) => [
-      {
-        html: id,
-        value: parseInt(id)
-      },
       {
         html: device.get('name'),
         value: device.get('name')
@@ -235,7 +225,7 @@ class SyncTab extends ImmutableComponent {
       <Grid gap={0} columns={2}>
         <Column size={1}>
           <SortableTable
-            headings={['id', 'syncDeviceName', 'syncDeviceLastActive']}
+            headings={['syncDeviceName', 'syncDeviceLastActive']}
             defaultHeading='syncDeviceLastActive'
             defaultHeadingSortOrder='desc'
             rows={this.devicesTableRows}
@@ -494,11 +484,17 @@ class SyncTab extends ImmutableComponent {
 
   get chainCodeOverlayFooter () {
     return (
-      <div className={css(styles.syncOverlayFooter_split)}>
-        <BrowserButton secondaryColor
-          l10nId='syncScanQRCode'
-          onClick={this.chainCodeOverlayUseCameraInstead.bind(this)}
-        />
+      <div className={css(
+        this.state.currentDeviceOption === 'mobile' && styles.syncOverlayFooter_split
+      )}>
+        {
+          this.state.currentDeviceOption === 'mobile'
+          ? <BrowserButton secondaryColor
+            l10nId='syncScanQRCode'
+            onClick={this.chainCodeOverlayUseCameraInstead.bind(this)}
+          />
+          : null
+        }
         <div>
           <BrowserButton groupedItem secondaryColor
             l10nId='backWithArrow'
@@ -793,7 +789,7 @@ class SyncTab extends ImmutableComponent {
       {
       this.props.syncStartOverlayVisible
         ? <ModalOverlay
-          grayOverlay
+          whiteOverlay
           title='syncNewDeviceTitle'
           titleArgs={{device: this.defaultDeviceName}}
           titleImage={syncPlusImage}
@@ -804,7 +800,7 @@ class SyncTab extends ImmutableComponent {
       {
       this.props.syncAddOverlayVisible
         ? <ModalOverlay
-          grayOverlay
+          whiteOverlay
           title='syncAddCode'
           titleImage={syncCodeImage}
           content={this.addOverlayContent}
@@ -815,7 +811,7 @@ class SyncTab extends ImmutableComponent {
       {
       this.props.syncScanCodeOverlayVisible
         ? <ModalOverlay
-          grayOverlay
+          whiteOverlay
           title={
             this.state.currentDeviceOption === 'mobile'
               ? 'syncScanMobile'
@@ -830,7 +826,7 @@ class SyncTab extends ImmutableComponent {
       {
         this.props.syncChainCodeOverlayVisible
         ? <ModalOverlay
-          grayOverlay
+          whiteOverlay
           title={
             this.state.currentDeviceOption === 'mobile'
               ? 'syncChainCodeMobile'
@@ -846,7 +842,7 @@ class SyncTab extends ImmutableComponent {
       {
         this.props.syncQRPassphraseOverlayVisible
         ? <ModalOverlay
-          grayOverlay
+          whiteOverlay
           content={this.qrPassphraseOverlayContent}
           footer={this.qrPassphraseOverlayFooter}
           onHide={this.onHideAnySetupOverlay.bind(this)} />
@@ -855,7 +851,7 @@ class SyncTab extends ImmutableComponent {
       {
       this.props.syncResetOverlayVisible
         ? <ModalOverlay
-          grayOverlay
+          whiteOverlay
           title={'syncReset'}
           content={this.resetOverlayContent}
           footer={this.resetOverlayFooter}
