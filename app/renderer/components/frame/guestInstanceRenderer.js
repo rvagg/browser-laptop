@@ -45,10 +45,7 @@ class GuestInstanceRenderer extends React.Component {
   componentDidUpdate (prevProps, prevState) {
     // attach new guest instance
     if (this.webviewDisplay && this.props.guestInstanceId && prevProps.guestInstanceId !== this.props.guestInstanceId) {
-      console.log(`Going to display tab ${this.props.tabId}, guest instance ID ${this.props.guestInstanceId}`)
-      // if (!this.webviewDisplay.isAttached) {
-        this.webviewDisplay.attachActiveTab(this.props.guestInstanceId)
-      // }
+      this.webviewDisplay.attachActiveTab(this.props.guestInstanceId)
     }
   }
 

@@ -44,6 +44,7 @@ module.exports = class WebviewDisplay {
     // or 2 in the pool.
     let requiredPoolSize = this.attachedWebview ? 1 : 2
     const poolDeficit = requiredPoolSize - this.webviewPool.length
+    console.log(`Adding ${poolDeficit} webview(s)`)
     for (let i = 0; i < poolDeficit; i++) {
       this.addPooledWebview()
     }
@@ -54,6 +55,11 @@ module.exports = class WebviewDisplay {
     newWebview.dataset.webviewReplaceCount = i++
     this.webviewPool.push(newWebview)
     this.containerElement.appendChild(newWebview)
+  }
+
+  getPooledWebview () {
+    this.ensureWebviewPoolSize()
+    return this.webviewPool.pop()
   }
 
   createPooledWebview () {
@@ -80,63 +86,45 @@ module.exports = class WebviewDisplay {
     return webview
   }
 
-  getPooledWebview () {
-    this.ensureWebviewPoolSize()
-    return this.webviewPool.pop()
-  }
 
   attachActiveTab (guestInstanceId) {
+    console.log(`attachActiveTab`, guestInstanceId)
     if (guestInstanceId == null) {
       throw new Error('guestInstanceId is not valid')
     }
-    // do nothing if repeat call to same guest Id
-    if (guestInstanceId === this.activeGuestInstanceId) {
+    // do nothing if repeat call to same guest Id as attached or attaching
+    if (
+      (!this.attachingToGuestInstanceId && guestInstanceId === this.activeGuestInstanceId) ||
+      guestInstanceId === this.attachingToGuestInstanceId
+    ) {
+      console.log('already attaching this guest, nothing to do.')
       return
     }
-    console.group(`attach ${guestInstanceId}`)
-    this.activeGuestInstanceId = guestInstanceId
-    const toAttachWebview = this.getPooledWebview()
-    console.log(`Using webview #${toAttachWebview.dataset.webviewReplaceCount}`)
-    // This webview will now be the currently attached webview.
-    // We set it here, before it's ready, just in case we are made inactive before we detach,
-    // we won't want to force showing once we do attach.
-    const lastAttachedWebview = this.attachedWebview
-    //this.webviewsPendingRemoval.push(lastAttachedWebview)
-    this.attachedWebview = toAttachWebview
-    // let's keep this around until the new one
-    const t0 = window.performance.now()
-    let timeoutHandleShowAttchedView = null
-
-    const showAttachedView = () => {
-      if (timeoutHandleShowAttchedView === null) {
-        console.log(`not running show because already done ${window.performance.now() - t0}ms`)
-        return
-      }
-      window.clearTimeout(timeoutHandleShowAttchedView)
-      timeoutHandleShowAttchedView = null
-      // check if we're still meant to be the primary view
-      console.log(`webview showing ${window.performance.now() - t0}ms`)
-      if (this.attachedWebview === toAttachWebview) {
-        console.log('class showing')
-        toAttachWebview.classList.add(this.classNameWebviewAttached)
-      }
-      console.groupEnd()
-      // If we were showing another frame, we wait for this new frame to display before
-      // hiding (and removing) the other frame's webview, so that we avoid a white flicker
-      // between attach.
-      if (lastAttachedWebview) {
-        lastAttachedWebview.classList.remove(this.classNameWebviewAttached)
-        lastAttachedWebview.detachGuest()
-        // return to the pool,
-        this.webviewPool.push(lastAttachedWebview)
-        // but for now we remove from DOM to avoid blank attach bug
-        console.log('removing last attached webview')
-      }
-      this.removePendingWebviews()
-      window.requestAnimationFrame(this.ensureWebviewPoolSize.bind(this))
+    // are we waiting to attach to something different already?
+    if (this.attachingToGuestInstanceId != null) {
+      // wait for that attach to finish, and queue this one up to then display
+      // if we have something already in the queue, then remove it
+      console.log('attach already in progress, queuing replacement guest')
+      this.attachingToGuestInstanceId = guestInstanceId
+      return
     }
+    // fresh attach
+    this.swapWebviewOnAttach(guestInstanceId, this.getPooledWebview(), this.attachedWebview)
+  }
 
+  swapWebviewOnAttach(guestInstanceId, toAttachWebview, lastAttachedWebview) {
+    console.log('swapWebviewOnAttach', guestInstanceId)
+    console.group(`attach ${guestInstanceId}`)
+    console.log(`Using webview #${toAttachWebview.dataset.webviewReplaceCount}`)
+
+    this.attachingToGuestInstanceId = guestInstanceId
+    const t0 = window.performance.now()
+    let timeoutHandleBumpView = null
+
+    // fn for guest did attach, and workaround to force paint
     const onToAttachDidAttach = () => {
+      // don't need to bump view
+      clearTimeout(timeoutHandleBumpView)
       toAttachWebview.removeEventListener('did-attach', onToAttachDidAttach)
       console.log(`webview did-attach ${window.performance.now() - t0}ms`)
       // TODO(petemill) remove ugly workaround as <webview>
@@ -150,12 +138,61 @@ module.exports = class WebviewDisplay {
       }
     }
 
+    // fn for smoothly hiding the previously active view before showing this one
+    const showAttachedView = () => {
+      // if (timeoutHandleShowAttachedView === null) {
+      //   console.log(`not running show because already done ${window.performance.now() - t0}ms`)
+      //   return
+      // }
+      // window.clearTimeout(timeoutHandleShowAttachedView)
+      // timeoutHandleShowAttachedView = null
+      // if we have decided to show a different guest in the time it's taken to attach and show
+      // then do not show the intermediate, instead detach it and wait for the next attach
+      if (guestInstanceId !== this.attachingToGuestInstanceId) {
+        toAttachWebview.detachGuest()
+        // if it happens to be the webview which is already being shown
+        if (this.attachingToGuestInstanceId === this.activeGuestInstanceId) {
+          // release everything and do not continue
+          this.webviewPool.push(toAttachWebview)
+          this.attachingToGuestInstanceId = null
+          console.log('Asked to show already-attached view, so leaving that alone and returning new attached to pool')
+          console.groupEnd()
+          return
+        }
+        // start again, but with different guest
+        console.log('Asked to show a different guest than the one we just attached, continuing with that one')
+        console.groupEnd()
+        this.swapWebviewOnAttach(this.attachingToGuestInstanceId, toAttachWebview, lastAttachedWebview)
+        return
+      }
+      console.log(`webview showing ${window.performance.now() - t0}ms`)
+
+      // got to the point where we are attached to the guest we *still* want to be displaying
+      this.activeGuestInstanceId = guestInstanceId
+      this.attachedWebview = toAttachWebview
+      this.attachingToGuestInstanceId = null
+
+      toAttachWebview.classList.add(this.classNameWebviewAttached)
+
+      // If we were showing another frame, we wait for this new frame to display before
+      // hiding (and removing) the other frame's webview, so that we avoid a white flicker
+      // between attach.
+      if (lastAttachedWebview) {
+        lastAttachedWebview.classList.remove(this.classNameWebviewAttached)
+        lastAttachedWebview.detachGuest()
+        // return to the pool,
+        console.log('returning detached webview to pool')
+        this.webviewPool.push(lastAttachedWebview)
+      }
+      this.removePendingWebviews()
+      console.groupEnd()
+    }
+
     toAttachWebview.addEventListener('did-attach', onToAttachDidAttach)
     console.log('attaching active guest instance ', guestInstanceId, 'to webview', toAttachWebview)
     toAttachWebview.attachGuest(guestInstanceId)
-    // just show the webview after a timeout if attachment has not rendered in time
-    console.log(`start timeout for attached view ${window.performance.now() - t0}ms`)
-    timeoutHandleShowAttchedView = window.setTimeout(showAttachedView, 200)
+    // another workaround for not getting did-attach on webview, set a timeout and then hide / show view
+    timeoutHandleBumpView = window.setTimeout(ensurePaintWebviewFirstAttach.bind(null, toAttachWebview), 2000)
   }
 
   removePendingWebviews () {
