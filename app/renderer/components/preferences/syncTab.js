@@ -28,7 +28,7 @@ const appActions = require('../../../../js/actions/appActions')
 const tabActions = require('../../../common/actions/tabActions')
 const getSetting = require('../../../../js/settings').getSetting
 const settings = require('../../../../js/constants/settings')
-
+const locale = require('../../../../js/l10n')
 const cx = require('../../../../js/lib/classSet')
 
 const {StyleSheet, css} = require('aphrodite/no-important')
@@ -188,24 +188,7 @@ class SyncTab extends ImmutableComponent {
             })}
           />
         </div>
-        <SettingsList>
-          <div className={css(styles.device__box)}>
-            <SettingCheckbox
-              className={css(styles.device__item)}
-              dataL10nId='syncEnable'
-              prefKey={settings.SYNC_ENABLED}
-              settings={this.props.settings}
-              onChangeSetting={this.toggleSync}
-            />
-            <div className={css(styles.device__item)}>
-              <span className={css(styles.device__syncDeviceLabel)} data-l10n-id='syncDeviceName' />
-              <div className={css(styles.device__deviceName)}>
-                {getSetting(settings.SYNC_DEVICE_NAME, this.props.settings)}
-              </div>
-            </div>
-          </div>
-          {this.enabled ? this.devicesContent : null}
-        </SettingsList>
+        {this.enabled ? this.devicesContent : null}
       </div>
     )
   }
@@ -219,12 +202,19 @@ class SyncTab extends ImmutableComponent {
     this.props.showOverlay('syncRemove')
   }
 
+  getDeviceName (device) {
+    if (device.get('mainDevice')) {
+      return `${device.get('name')} (${locale.translation('thisDevice')})`
+    }
+    return device.get('name')
+  }
+
   get devicesTableRows () {
     const devices = this.props.syncData.get('devices')
     if (!devices) { return [] }
     return devices.map((device, id) => [
       {
-        html: device.get('name'),
+        html: this.getDeviceName(device),
         value: device.get('name')
       },
       {
@@ -247,7 +237,7 @@ class SyncTab extends ImmutableComponent {
 
   get devicesContent () {
     return <section className={css(styles.settingsListContainerMargin__top)}>
-      <DefaultSectionTitle data-l10n-id='syncDevices' data-test-id='syncDevices' />
+      <DefaultSectionTitle data-l10n-id='syncDevicesInSyncChain' data-test-id='syncDevices' />
       <Grid gap={0} columns={2}>
         <Column size={1}>
           <SortableTable
@@ -795,7 +785,6 @@ class SyncTab extends ImmutableComponent {
   }
 
   reset (needsConfirmDialog = true) {
-    const locale = require('../../../../js/l10n')
     const msg = locale.translation('areYouSure')
     if (needsConfirmDialog && window.confirm(msg)) {
       aboutActions.resetSync()
@@ -1048,30 +1037,6 @@ const styles = StyleSheet.create({
     color: globalStyles.color.braveDarkOrange,
     fontWeight: 'bold',
     margin: `calc(${globalStyles.spacing.panelPadding} / 2) 0 ${globalStyles.spacing.dialogInsideMargin}`
-  },
-
-  device__box: {
-    display: 'flex',
-    alignItems: 'center',
-    background: globalStyles.color.lightGray,
-    borderRadius: globalStyles.radius.borderRadiusUIbox,
-    color: globalStyles.color.mediumGray,
-    margin: `${globalStyles.spacing.panelMargin} 0`,
-    padding: globalStyles.spacing.panelPadding,
-    boxSizing: 'border-box',
-    width: '600px'
-  },
-
-  device__item: {
-    flex: 1
-  },
-
-  device__syncDeviceLabel: {
-    fontSize: '.9rem'
-  },
-
-  device__deviceName: {
-    marginTop: `calc(${globalStyles.spacing.panelPadding} / 2)`
   },
 
   devices__devicesList: {

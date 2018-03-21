@@ -255,6 +255,7 @@ var rendererIdentifiers = function () {
     'noDownloads',
     'torrentDesc',
     'multiSelectionBookmarks',
+    'thisDevice',
     // Caption buttons in titlebar (min/max/close - Windows only)
     'windowCaptionButtonMinimize',
     'windowCaptionButtonMaximize',
