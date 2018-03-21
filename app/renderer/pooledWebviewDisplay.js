@@ -169,10 +169,8 @@ module.exports = class WebviewDisplay {
       console.log(`webview showing ${window.performance.now() - t0}ms`)
 
       // got to the point where we are attached to the guest we *still* want to be displaying
-      this.activeGuestInstanceId = guestInstanceId
-      this.attachedWebview = toAttachWebview
-      this.attachingToGuestInstanceId = null
 
+      // show it
       toAttachWebview.classList.add(this.classNameWebviewAttached)
 
       // If we were showing another frame, we wait for this new frame to display before
@@ -181,13 +179,23 @@ module.exports = class WebviewDisplay {
       if (lastAttachedWebview) {
         lastAttachedWebview.classList.remove(this.classNameWebviewAttached)
         console.log('detaching guest from last attached webview...')
+        // TODO: don't neccessarily need to do this, since next attach should detach guest
         await lastAttachedWebview.detachGuest()
         // return to the pool,
-        console.log('...finished detach. returning detached webview to pool')
         this.webviewPool.push(lastAttachedWebview)
       }
-      this.removePendingWebviews()
+      // check again if there's a pending view
+      // since we may have done something async
+      const pendingGuestInstanceId = this.attachingToGuestInstanceId
+      // reset state
+      this.activeGuestInstanceId = guestInstanceId
+      this.attachedWebview = toAttachWebview
+      this.attachingToGuestInstanceId = null
       console.groupEnd()
+      // perform next attach if there's one waiting
+      if (pendingGuestInstanceId !== guestInstanceId) {
+        this.swapWebviewOnAttach(pendingGuestInstanceId, this.getPooledWebview(), this.attachedWebview)
+      }
     }
 
     toAttachWebview.addEventListener('did-attach', onToAttachDidAttach)
