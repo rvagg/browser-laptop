@@ -3,8 +3,8 @@ const {StyleSheet, css} = require('aphrodite/no-important')
 
 // Components
 const ReduxComponent = require('../reduxComponent')
-//const WebviewDisplay = require('../../pooledWebviewDisplay')
-const WebviewDisplay = require('../../webviewDisplay')
+const WebviewDisplay = require('../../pooledWebviewDisplay')
+// const WebviewDisplay = require('../../webviewDisplay')
 
 // Actions
 const windowActions = require('../../../../js/actions/windowActions')
