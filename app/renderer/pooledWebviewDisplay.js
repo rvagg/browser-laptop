@@ -11,17 +11,17 @@ function ensurePaintWebviewFirstAttach (webview, cb = () => {}) {
 }
 
 function ensurePaintWebviewSubsequentAttach (webview, cb = () => {}) {
+  webview.style.top = '1px'
   window.requestAnimationFrame(() => {
-    webview.style.top = '1px'
-    window.requestAnimationFrame(() => {
-      webview.style.top = ''
-      window.requestAnimationFrame(cb)
-    })
+    webview.style.top = ''
+    cb()
   })
 }
 
+const animationFrame = () => new Promise(window.requestAnimationFrame)
+
 module.exports = class WebviewDisplay {
-  constructor ({ containerElement, classNameWebview, classNameWebviewAttached, onFocus, shouldRemoveOnDestroy = false }) {
+  constructor ({ containerElement, classNameWebview, classNameWebviewAttached, classNameWebviewAttaching, onFocus, shouldRemoveOnDestroy = false }) {
     if (!containerElement) {
       throw new Error('Must pass a valid containerElement to WebviewDisplay constructor')
     }
@@ -29,6 +29,7 @@ module.exports = class WebviewDisplay {
     this.containerElement = containerElement
     this.classNameWebview = classNameWebview
     this.classNameWebviewAttached = classNameWebviewAttached
+    this.classNameWebviewAttaching = classNameWebviewAttaching
     this.onFocus = onFocus
     this.webviewPool = []
     // when contents are destroyed, don't remove the webview immediately,
@@ -154,16 +155,21 @@ module.exports = class WebviewDisplay {
       }
       console.log(`webview showing ${window.performance.now() - t0}ms`)
 
-      // got to the point where we are attached to the guest we *still* want to be displaying
-
-      // show it
+      // At the point where we are attached to the guest we *still* want to be displaying.
+      // So, show it.
+      toAttachWebview.classList.add(this.classNameWebviewAttaching)
+      // (takes about 3 frames to paint fully and avoid a white flash)
+      await animationFrame()
+      await animationFrame()
+      await animationFrame()
       toAttachWebview.classList.add(this.classNameWebviewAttached)
-
-      // If we were showing another frame, we wait for this new frame to display before
+      // If we are already showing another frame, we wait for this new frame to display before
       // hiding (and removing) the other frame's webview, so that we avoid a white flicker
       // between attach.
       if (lastAttachedWebview) {
+        // finalize display classes
         lastAttachedWebview.classList.remove(this.classNameWebviewAttached)
+        toAttachWebview.classList.remove(this.classNameWebviewAttaching)
         console.log('detaching guest from last attached webview...')
         // TODO: don't neccessarily need to do this, since next attach should detach guest
         await lastAttachedWebview.detachGuest()

@@ -56,6 +56,7 @@ class GuestInstanceRenderer extends React.Component {
         containerElement,
         classNameWebview: css(styles.guestInstanceRenderer__webview),
         classNameWebviewAttached: css(styles.guestInstanceRenderer__webview_attached),
+        classNameWebviewAttaching: css(styles.guestInstanceRenderer__webview_attaching),
         onFocus: this.onFocus.bind(this)
       })
       if (this.props && this.props.guestInstanceId != null) {
@@ -130,8 +131,12 @@ const styles = StyleSheet.create({
   },
 
   guestInstanceRenderer__webview_attached: {
-    // only show the active webview when it is attached, reducing white flash
     zIndex: 20
+  },
+
+  guestInstanceRenderer__webview_attaching: {
+    // only show the active webview when it is attached, reducing white flash
+    zIndex: 15
   }
 })
 
