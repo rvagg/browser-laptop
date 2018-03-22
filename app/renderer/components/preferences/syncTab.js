@@ -93,7 +93,6 @@ class SyncTab extends ImmutableComponent {
 
   get clearDataContent () {
     return <section className={css(styles.settingsListContainerMargin__bottom)}>
-      <DefaultSectionTitle data-l10n-id='syncClearData' />
       {
         this.enabled
           ? <BrowserButton primaryColor
