@@ -27,7 +27,8 @@ class GuestInstanceRenderer extends React.Component {
       guestInstanceId: frame && frame.get('guestInstanceId'),
       tabId: frame && frame.get('tabId'),
       isDefaultNewTabLocation: location === 'about:newtab',
-      isBlankLocation: location === 'about:blank'
+      isBlankLocation: location === 'about:blank',
+      isPlaceholder: frame && frame.get('isPlaceholder')
     }
     return props
   }
@@ -45,7 +46,9 @@ class GuestInstanceRenderer extends React.Component {
   componentDidUpdate (prevProps, prevState) {
     // attach new guest instance
     if (this.webviewDisplay && this.props.guestInstanceId && prevProps.guestInstanceId !== this.props.guestInstanceId) {
-      this.webviewDisplay.attachActiveTab(this.props.guestInstanceId)
+      if (!this.props.isPlaceholder) {
+        this.webviewDisplay.attachActiveTab(this.props.guestInstanceId)
+      }
     }
   }
 
