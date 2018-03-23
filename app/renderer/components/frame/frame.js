@@ -191,6 +191,13 @@ class Frame extends React.Component {
   }
 
   componentDidUpdate (prevProps) {
+
+    // tab id changed
+    if (prevProps.tabId && this.props.tabId !== prevProps.tabId) {
+      console.log('cdu frame tab id changed', this.props.tabId)
+      this.unregisterEventListener(prevProps.tabId)
+      this.registerEventListener(this.props.tabId)
+    }
     // TODO: This title should be set in app/browser/tabs.js and then we should use the
     // app state for the tabData everywhere and remove windowState's title completely.
     if (this.props.activeShortcut !== prevProps.activeShortcut) {
