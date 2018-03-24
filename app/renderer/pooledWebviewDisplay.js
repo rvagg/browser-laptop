@@ -1,3 +1,6 @@
+
+const remote = require('electron').remote
+
 let i = 0
 
 function ensurePaintWebviewFirstAttach (webview, cb = () => {}) {
@@ -74,15 +77,15 @@ module.exports = class WebviewDisplay {
   }
 
 
-  attachActiveTab (guestInstanceId) {
-    console.log(`attachActiveTab`, guestInstanceId)
-    if (guestInstanceId == null) {
+  attachActiveTab (tabId) {
+    console.log(`attachActiveTab`, tabId)
+    if (tabId == null) {
       throw new Error('guestInstanceId is not valid')
     }
     // do nothing if repeat call to same guest Id as attached or attaching
     if (
-      (!this.attachingToGuestInstanceId && guestInstanceId === this.activeGuestInstanceId) ||
-      guestInstanceId === this.attachingToGuestInstanceId
+      (!this.attachingToGuestInstanceId && tabId === this.activeGuestInstanceId) ||
+      tabId === this.attachingToGuestInstanceId
     ) {
       console.log('already attaching this guest, nothing to do.')
       return
@@ -92,27 +95,24 @@ module.exports = class WebviewDisplay {
       // wait for that attach to finish, and queue this one up to then display
       // if we have something already in the queue, then remove it
       console.log('attach already in progress, queuing replacement guest')
-      this.attachingToGuestInstanceId = guestInstanceId
+      this.attachingToGuestInstanceId = tabId
       return
     }
     // fresh attach
-    this.swapWebviewOnAttach(guestInstanceId, this.getPooledWebview(), this.attachedWebview)
+    this.swapWebviewOnAttach(tabId, this.getPooledWebview(), this.attachedWebview)
   }
 
-  swapWebviewOnAttach(guestInstanceId, toAttachWebview, lastAttachedWebview) {
-    console.log('swapWebviewOnAttach', guestInstanceId)
-    console.group(`attach ${guestInstanceId}`)
+  swapWebviewOnAttach (tabId, toAttachWebview, lastAttachedWebview) {
+    console.log('swapWebviewOnAttach', tabId)
+    console.group(`attach ${tabId}`)
     console.log(`Using webview #${toAttachWebview.dataset.webviewReplaceCount}`)
 
-    this.attachingToGuestInstanceId = guestInstanceId
+    this.attachingToGuestInstanceId = tabId
     const t0 = window.performance.now()
     let timeoutHandleBumpView = null
 
     // fn for guest did attach, and workaround to force paint
     const onToAttachDidAttach = () => {
-      // don't need to bump view
-      clearTimeout(timeoutHandleBumpView)
-      toAttachWebview.removeEventListener('did-attach', onToAttachDidAttach)
       console.log(`webview did-attach ${window.performance.now() - t0}ms`)
       // TODO(petemill) remove ugly workaround as <webview>
       // will often not paint guest unless
@@ -127,15 +127,9 @@ module.exports = class WebviewDisplay {
 
     // fn for smoothly hiding the previously active view before showing this one
     const showAttachedView = async () => {
-      // if (timeoutHandleShowAttachedView === null) {
-      //   console.log(`not running show because already done ${window.performance.now() - t0}ms`)
-      //   return
-      // }
-      // window.clearTimeout(timeoutHandleShowAttachedView)
-      // timeoutHandleShowAttachedView = null
       // if we have decided to show a different guest in the time it's taken to attach and show
       // then do not show the intermediate, instead detach it and wait for the next attach
-      if (guestInstanceId !== this.attachingToGuestInstanceId) {
+      if (tabId !== this.attachingToGuestInstanceId) {
         console.log('detaching guest from just attached view because it was not the desired guest anymore')
         await toAttachWebview.detachGuest()
         // if it happens to be the webview which is already being shown
@@ -180,21 +174,80 @@ module.exports = class WebviewDisplay {
       // since we may have done something async
       const pendingGuestInstanceId = this.attachingToGuestInstanceId
       // reset state
-      this.activeGuestInstanceId = guestInstanceId
+      this.activeGuestInstanceId = tabId
       this.attachedWebview = toAttachWebview
       this.attachingToGuestInstanceId = null
       console.groupEnd()
       // perform next attach if there's one waiting
-      if (pendingGuestInstanceId !== guestInstanceId) {
+      if (pendingGuestInstanceId !== tabId) {
         this.swapWebviewOnAttach(pendingGuestInstanceId, this.getPooledWebview(), this.attachedWebview)
       }
     }
 
-    toAttachWebview.addEventListener('did-attach', onToAttachDidAttach)
-    console.log('attaching active guest instance ', guestInstanceId, 'to webview', toAttachWebview)
-    toAttachWebview.attachGuest(guestInstanceId)
-    // another workaround for not getting did-attach on webview, set a timeout and then hide / show view
-    timeoutHandleBumpView = window.setTimeout(ensurePaintWebviewFirstAttach.bind(null, toAttachWebview), 2000)
+    // we may get a will-destroy before a did-attach, if that happens, abandon
+    const onDestroyedInsteadOfAttached = () => {
+      console.log('destroyed instead of attached...')
+      // continue with next attach request if we've had one in the meantime
+      if (this.attachingToGuestInstanceId !== tabId) {
+        // if it happens to be the webview which is already being shown
+        if (this.attachingToGuestInstanceId === this.activeGuestInstanceId) {
+          // release everything and do not continue
+          this.webviewPool.push(toAttachWebview)
+          this.attachingToGuestInstanceId = null
+          console.log('Asked to show already-attached view, so leaving that alone and returning new attached to pool')
+          console.groupEnd()
+          return
+        }
+        // start again, but with different guest
+        console.log('Asked to show a different guest than the one we just attached, continuing with that one')
+        console.groupEnd()
+        this.swapWebviewOnAttach(this.attachingToGuestInstanceId, toAttachWebview, lastAttachedWebview)
+        return
+      }
+      // reset state and do not continue
+      this.webviewPool.push(toAttachWebview)
+      this.attachingToGuestInstanceId = null
+      console.groupEnd()
+    }
+
+    // monitor for destroy or attach after we ask for attach
+    console.log('getting web contents for', tabId, '...')
+    const tabEventHandler = (event) => {
+      console.log('pooled got event for tab', tabId, event.type)
+      switch (event.type) {
+        case 'will-destroy':
+        case 'destroyed':
+          // don't need to bump view
+          clearTimeout(timeoutHandleBumpView)
+          remote.unregisterEvents(tabId, tabEventHandler)
+          onDestroyedInsteadOfAttached()
+          break
+        case 'did-attach':
+          // don't need to bump view
+          clearTimeout(timeoutHandleBumpView)
+          remote.unregisterEvents(tabId, tabEventHandler)
+          onToAttachDidAttach()
+          break
+      }
+    }
+
+    remote.registerEvents(tabId, tabEventHandler)
+
+    // check if the contents are already destroyed before we attach
+    remote.getWebContents(tabId, (webContents) => {
+      if (!webContents || webContents.isDestroyed()) {
+        onDestroyedInsteadOfAttached()
+        remote.unregisterEvents(tabId, tabEventHandler)
+        return
+      }
+      // use the guest instance id
+      const guestInstanceId = webContents.guestInstanceId
+      console.log('attaching active guest instance ', guestInstanceId, 'to webview', toAttachWebview)
+      toAttachWebview.attachGuest(guestInstanceId, webContents)
+      console.log('Waiting....')
+      // another workaround for not getting did-attach on webview, set a timeout and then hide / show view
+      timeoutHandleBumpView = window.setTimeout(ensurePaintWebviewFirstAttach.bind(null, toAttachWebview), 2000)
+    })
   }
 
   removePendingWebviews () {
