@@ -81,7 +81,7 @@ const detachTab = (evt, tabId, index, windowId) => {
 const updateTab = (tabId, changeInfo = {}) => {
   let tabValue = getTabValue(tabId)
   if (shouldDebugTabEvents) {
-    console.log(`Tab [${tabId}] updated from muon. changeInfo:`, changeInfo, 'currentValues:', { newIndex: tabValue && tabValue.get('index'), newActive: tabValue && tabValue.get('active'), windowId: tabValue && tabValue.get('windowId') })
+    console.log(`Tab [${tabId}] updated from muon. changeInfo:`, changeInfo, 'currentValues:', { newIndex: tabValue && tabValue.get('index'), newActive: tabValue && tabValue.get('active'), windowId: tabValue && tabValue.get('windowId'), isPlaceholder: tabValue.get('isPlaceholder') })
   }
 
   if (tabValue) {
@@ -550,7 +550,11 @@ const api = {
         appActions.newWindow(makeImmutable(frameOpts), windowOpts)
       } else {
         // TODO(bridiver) - use tabCreated in place of newWebContentsAdded
-        appActions.newWebContentsAdded(windowId, frameOpts, newTabValue)
+        //appActions.newWebContentsAdded(windowId, frameOpts, newTabValue)
+        const win = getWindow(windowId)
+        if (win) {
+          win.webContents.send('new-web-contents-added', frameOpts, newTabValue.toJS())
+        }
       }
     })
 
