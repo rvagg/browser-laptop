@@ -231,10 +231,7 @@ module.exports.cleanPerWindowData = (immutablePerWindowData, isShutdown) => {
       // currently get re-generated when session store is
       // restored.  We will be able to keep this once we
       // don't regenerate new frame keys when opening storage.
-      'parentFrameKey',
-      // Delete the active shortcut details
-      'activeShortcut',
-      'activeShortcutDetails'
+      'parentFrameKey'
     ])
 
     if (immutableFrame.get('navbar') && immutableFrame.getIn(['navbar', 'urlbar'])) {

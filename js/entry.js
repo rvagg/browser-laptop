@@ -101,7 +101,7 @@ const generateTabs = (windowState, frames, windowId) => {
   if (frames && frames.length) {
     frames.forEach((frame, i) => {
       if (frame.guestInstanceId) {
-        appActions.newWebContentsAdded(windowId, frame)
+        newWebContentsAdded(frameOpts)
       } else {
         appActions.createTabRequested({
           url: frame.location || frame.src || frame.provisionalLocation || frame.url,
@@ -117,3 +117,40 @@ const generateTabs = (windowState, frames, windowId) => {
     })
   }
 }
+
+function newWebContentsAdded (frameOpts, newTabValue) {
+  console.log('frameOpts', frameOpts)
+  console.log('tabValue', newTabValue)
+  windowActions.newFrame(frameOpts, newTabValue)
+}
+
+// listen for tab events
+const rendererTabEvents = require('../app/renderer/rendererTabEvents')
+
+electron.remote.registerAllWindowTabEvents(e => {
+  const eventName = e.type
+  const tabId = e.eventTabId
+  console.log('registerAllWindowTabEvents', tabId, eventName)
+  rendererTabEvents.handleTabEvent(tabId, eventName, e)
+})
+
+windowStore.addChangeListener(() => {
+  console.log('window store changes, check frames...')
+})
+ipc.on('new-web-contents-added', (e, frameOpts, newTabValue) => {
+  newWebContentsAdded(frameOpts, newTabValue)
+})
+
+// listen for shortcuts
+const rendererShortcutHandler = require('../app/renderer/rendererShortcutHandler')
+const frameShortcuts = ['stop', 'reload', 'zoom-in', 'zoom-out', 'zoom-reset', 'toggle-dev-tools', 'clean-reload', 'view-source', 'mute', 'save', 'print', 'show-findbar', 'find-next', 'find-prev']
+frameShortcuts.forEach((shortcut) => {
+  // Listen for actions on the active frame
+  ipc.on(`shortcut-active-frame-${shortcut}`, rendererShortcutHandler.handleActiveFrameShortcut.bind(null, shortcut))
+  // Listen for actions on frame N
+  if (['reload', 'mute'].includes(shortcut)) {
+    ipc.on(`shortcut-frame-${shortcut}`, (e, frameKey, args) => {
+      rendererShortcutHandler.handleFrameShortcut(frameKey, shortcut, e, args)
+    })
+  }
+})
