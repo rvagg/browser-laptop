@@ -119,8 +119,6 @@ const generateTabs = (windowState, frames, windowId) => {
 }
 
 function newWebContentsAdded (frameOpts, newTabValue) {
-  console.log('frameOpts', frameOpts)
-  console.log('tabValue', newTabValue)
   windowActions.newFrame(frameOpts, newTabValue)
 }
 
@@ -130,13 +128,13 @@ const rendererTabEvents = require('../app/renderer/rendererTabEvents')
 electron.remote.registerAllWindowTabEvents(e => {
   const eventName = e.type
   const tabId = e.eventTabId
-  console.log('registerAllWindowTabEvents', tabId, eventName)
+  //console.log('registerAllWindowTabEvents', tabId, eventName)
   rendererTabEvents.handleTabEvent(tabId, eventName, e)
 })
 
-windowStore.addChangeListener(() => {
-  console.log('window store changes, check frames...')
-})
+// windowStore.addChangeListener(() => {
+//   console.log('window store changes, check frames...')
+// })
 ipc.on('new-web-contents-added', (e, frameOpts, newTabValue) => {
   newWebContentsAdded(frameOpts, newTabValue)
 })
