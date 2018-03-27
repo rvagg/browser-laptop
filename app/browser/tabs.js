@@ -36,7 +36,7 @@ const historyState = require('../common/state/historyState')
 const siteSettingsState = require('../common/state/siteSettingsState')
 const bookmarkOrderCache = require('../common/cache/bookmarkOrderCache')
 const ledgerState = require('../common/state/ledgerState')
-const {getWindow} = require('./windows')
+const {getWindow, notifyWindowWebContentsAdded} = require('./windows')
 const activeTabHistory = require('./activeTabHistory')
 
 let adBlockRegions
@@ -549,12 +549,11 @@ const api = {
         const windowOpts = makeImmutable(size)
         appActions.newWindow(makeImmutable(frameOpts), windowOpts)
       } else {
-        // TODO(bridiver) - use tabCreated in place of newWebContentsAdded
-        //appActions.newWebContentsAdded(windowId, frameOpts, newTabValue)
-        const win = getWindow(windowId)
-        if (win) {
-          win.webContents.send('new-web-contents-added', frameOpts, newTabValue.toJS())
-        }
+        // Unfortunately we rely on tab events in the renderer window process
+        // so use an IPC call here to notify that process of the new tab to track.
+        // TODO: move all events to browser process (this module) and do not handle all
+        // tab events inside the window.
+        notifyWindowWebContentsAdded(windowId, frameOpts, newTabValue.toJS())
       }
     })
 
