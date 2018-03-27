@@ -1159,7 +1159,7 @@ const api = {
         } else {
           // Ask for tab to be attached (via frame state and webview) to
           // specified window
-          appActions.newWebContentsAdded(toWindowId, frameOpts, tabValue)
+          notifyWindowWebContentsAdded(toWindowId, frameOpts, tabValue.toJS())
         }
       }
 
