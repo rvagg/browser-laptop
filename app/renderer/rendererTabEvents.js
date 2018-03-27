@@ -50,8 +50,17 @@ function getTab (tabId) {
 }
 
 const api = module.exports = {
-  handleTabEvent(tabId, eventType, e) {
+  handleTabEvent (tabId, eventType, e) {
     switch (eventType) {
+      case 'tab-detached-at': {
+        console.error(`window tab-detached-at ${tabId}`)
+        const frame = getFrameByTabId(tabId)
+        if (!frame) {
+          break
+        }
+        windowActions.closeFrame(frame.get('frameKey'))
+        break
+      }
       case 'content-blocked': {
         if (e.details[0] === 'javascript' && e.details[1]) {
           windowActions.setBlockedBy(tabId, 'noScript', e.details[1])
