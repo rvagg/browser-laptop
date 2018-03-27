@@ -18,6 +18,7 @@ const appActions = require('../../../js/actions/appActions')
 const frameStateUtil = require('../../../js/state/frameStateUtil')
 const {getSourceAboutUrl, getSourceMagnetUrl} = require('../../../js/lib/appUrlUtil')
 const {isURL, isPotentialPhishingUrl, getUrlFromInput} = require('../../../js/lib/urlutil')
+const {getCurrentWindowId} = require('../currentWindow')
 
 const setFullScreen = (state, action) => {
   const index = frameStateUtil.getIndexByTabId(state, action.tabId)
@@ -79,6 +80,19 @@ const getLocation = (location) => {
 
 const frameReducer = (state, action, immutableAction) => {
   switch (action.actionType) {
+    case appConstants.APP_TAB_INSERTED_TO_TAB_STRIP: {
+      const tabId = immutableAction.get('tabId')
+      const index = frameStateUtil.getIndexByTabId(state, tabId)
+      let frame = frameStateUtil.getFrameByTabId(state, tabId)
+      if (index === -1) {
+        console.error('frame not found for tab inserted to tab strip', tabId, state.get('frames').toJS())
+        break
+      }
+      state = state.mergeIn(['frames', index], {
+        tabStripWindowId: getCurrentWindowId()
+      })
+      break
+    }
     case appConstants.APP_TAB_REMOVED_FROM_WINDOW:
     case appConstants.APP_TAB_CLOSED: {
       const tabId = immutableAction.get('tabId')
