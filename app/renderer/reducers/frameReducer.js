@@ -235,12 +235,10 @@ const frameReducer = (state, action, immutableAction) => {
         state = state.mergeIn(framePath, {
           adblock: {},
           audioPlaybackActive: false,
-          computedThemeColor: undefined,
           httpsEverywhere: {},
           icon: undefined,
           location: action.location,
           noScript: {},
-          themeColor: undefined,
           title: '',
           trackingProtection: {},
           fingerprintingProtection: {}
