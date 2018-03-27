@@ -71,7 +71,8 @@ class PinnedTabs extends React.Component {
 
   mergeProps (state, ownProps) {
     const currentWindow = state.get('currentWindow')
-    const pinnedFrames = frameStateUtil.getPinnedFrames(currentWindow) || Immutable.List()
+    const pinnedFrames = frameStateUtil.getPinnedFrames(currentWindow)
+      .filter(frame => frame.get('tabStripWindowId') === getCurrentWindowId())
     const previewFrameKey = frameStateUtil.getPreviewFrameKey(currentWindow)
 
     const props = {}
