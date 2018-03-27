@@ -110,7 +110,6 @@ const newFrame = (state, frameOpts) => {
     frameOpts = {}
   }
   frameOpts = frameOpts.toJS ? frameOpts.toJS() : frameOpts
-  console.log('newFrame', frameOpts.tabId)
   // handle tabs.create properties
   let insertionIndex = frameOpts.index !== undefined
     ? frameOpts.index
