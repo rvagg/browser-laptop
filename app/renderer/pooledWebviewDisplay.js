@@ -109,6 +109,9 @@ module.exports = class WebviewDisplay {
         wheelDeltaY = 0
       }
     })
+    webview.addEventListener('tab-id-changed', (e) => {
+      console.log('webview tab-id-changed to tabId', e.tabID)
+    })
     const debugEvents = ['tab-replaced-at', 'tab-id-changed', 'will-attach', 'did-attach', 'did-detach', 'will-detach', 'console-message']
     for (const event of debugEvents) {
       webview.addEventListener(event, () => {
@@ -172,6 +175,7 @@ module.exports = class WebviewDisplay {
       // then do not show the intermediate, instead detach it and wait for the next attach
       if (tabId !== this.attachingToGuestInstanceId) {
         console.log('detaching guest from just attached view because it was not the desired guest anymore')
+        remote.unregisterEvents(tabId, tabEventHandler)
         await toAttachWebview.detachGuest()
         // if it happens to be the webview which is already being shown
         if (this.attachingToGuestInstanceId === this.activeGuestInstanceId) {
@@ -197,6 +201,8 @@ module.exports = class WebviewDisplay {
       await animationFrame()
       await animationFrame()
       await animationFrame()
+      console.log('unregisterEvents', tabId)
+      remote.unregisterEvents(tabId, tabEventHandler)
       toAttachWebview.classList.add(this.classNameWebviewAttached)
       // If we are already showing another frame, we wait for this new frame to display before
       // hiding (and removing) the other frame's webview, so that we avoid a white flicker
@@ -258,6 +264,7 @@ module.exports = class WebviewDisplay {
 
     // monitor for destroy or attach after we ask for attach
     console.log('getting web contents for', tabId, '...')
+    let handled = false
     const tabEventHandler = (event) => {
       console.log('pooled got event for tab', tabId, event.type)
       switch (event.type) {
@@ -269,10 +276,21 @@ module.exports = class WebviewDisplay {
           onDestroyedInsteadOfAttached()
           break
         case 'did-attach':
-          // don't need to bump view
-          clearTimeout(timeoutHandleBumpView)
-          remote.unregisterEvents(tabId, tabEventHandler)
-          onToAttachDidAttach()
+          // only handle once,
+          // tab can attach, detach and attach again for some reason
+          // but we don't remove handler here as we want to know
+          // when did-detach happens after did-attach but before
+          // we're done displaying
+          if (!handled) {
+            // don't need to bump view
+            clearTimeout(timeoutHandleBumpView)
+            onToAttachDidAttach()
+            handled = true
+          }
+          break
+        case 'did-detach':
+          // we want to know if the tab has detached before we're done
+          console.error('webview detached whilst waiting for attach!')
           break
       }
     }
@@ -289,7 +307,8 @@ module.exports = class WebviewDisplay {
       // use the guest instance id
       const guestInstanceId = webContents.guestInstanceId
       console.log('attaching active guest instance ', guestInstanceId, 'to webview', toAttachWebview)
-      toAttachWebview.attachGuest(guestInstanceId, webContents)
+      // setImmediate is a bit of a hacky way to ensure that registerEvents handler is registered
+      setImmediate(() => toAttachWebview.attachGuest(guestInstanceId, webContents))
       console.log('Waiting....')
       // another workaround for not getting did-attach on webview, set a timeout and then hide / show view
       timeoutHandleBumpView = window.setTimeout(ensurePaintWebviewFirstAttach.bind(null, toAttachWebview), 2000)
