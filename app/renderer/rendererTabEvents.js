@@ -596,7 +596,7 @@ function showWidevineNotification (tabId, frame, noWidevineCallback, widevineCal
   }
 
   electron.ipcRenderer.once(messages.NOTIFICATION_RESPONSE + nonce, (e, msg, buttonIndex, persist) => {
-    const cb = getFrameNotificationCallbacks(frame.get('frameKey'))[msg]
+    const cb = getFrameNotificationCallbacks(frame.get('key'))[msg]
     if (cb) {
       cb(buttonIndex, persist)
     }
