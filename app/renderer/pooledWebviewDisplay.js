@@ -112,6 +112,10 @@ module.exports = class WebviewDisplay {
     webview.addEventListener('tab-id-changed', (e) => {
       console.log('webview tab-id-changed to tabId', e.tabID)
     })
+    webview.addEventListener('tab-detached-at', () => {
+      console.log('webview tab-detached-at')
+      webview.detachGuest()
+    })
     const debugEvents = ['tab-replaced-at', 'tab-id-changed', 'will-attach', 'did-attach', 'did-detach', 'will-detach', 'console-message']
     for (const event of debugEvents) {
       webview.addEventListener(event, () => {
