@@ -281,7 +281,7 @@ const api = {
           const tabId = contents.getId()
           appActions.tabInsertedToTabStrip(win.id, tabId, index)
           if (shouldDebugWindowEvents) {
-            console.log(`window ${win.id} had ${!active && 'in'}active tab ${tabId} inserted at index ${index}`)
+            console.log(`window ${win.id} had ${!active ? 'in' : ''}active tab ${tabId} inserted at index ${index}`)
           }
         })
         win.on('scroll-touch-begin', function (e) {
