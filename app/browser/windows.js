@@ -27,6 +27,7 @@ const pinnedSitesState = require('../common/state/pinnedSitesState')
 const {zoomLevel} = require('../common/constants/toolbarUserInterfaceScale')
 const { shouldDebugWindowEvents, disableBufferWindow, disableDeferredWindowLoad } = require('../cmdLine')
 const activeTabHistory = require('./activeTabHistory')
+const webContentsCache = require('./webContentsCache')
 
 const isDarwin = platformUtil.isDarwin()
 const isWindows = platformUtil.isWindows()
@@ -210,8 +211,12 @@ function openFramesInWindow (win, frames, activeFrameKey) {
     let frameIndex = -1
     for (const frame of frames) {
       frameIndex++
-      if (frame.guestInstanceId) {
+      if (frame.tabId != null && frame.guestInstanceId != null) {
         api.notifyWindowWebContentsAdded(win.id, frame)
+        const tab = webContentsCache.getWebContents(frame.tabId)
+        if (tab && !tab.isDestroyed()) {
+          tab.moveTo(frameIndex, win.id)
+        }
       } else {
         appActions.createTabRequested({
           windowId: win.id,

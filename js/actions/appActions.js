@@ -374,20 +374,6 @@ const appActions = {
   },
 
   /**
-   * Notifies that a tab has been removed from a window (but not closed)
-   * @param {number} tabId
-   */
-  tabRemovedFromWindow: function (tabId, windowId) {
-    dispatch({
-      actionType: appConstants.APP_TAB_REMOVED_FROM_WINDOW,
-      tabId,
-      queryInfo: {
-        windowId
-      }
-    })
-  },
-
-  /**
    * Adds a site to the site list
    * @param {Object} siteDetail - Properties of the site in question, can also be an array of siteDetail
    */
@@ -1985,7 +1971,8 @@ const appActions = {
         windowId
       },
       tabId,
-      index
+      index,
+      windowId
     })
   }
 }
