@@ -652,9 +652,23 @@ const api = {
 
       tab.on('tab-detached-at', () => {
         const tabValue = getTabValue(tabId)
-        const windowId = tabValue.get('windowId')
-        console.log(`tab ${tabId} detached from window ${windowId}`)
-        activeTabHistory.clearTabFromWindow(windowId, tabId)
+        if (tabValue) {
+          const windowId = tabValue.get('windowId')
+          console.log(`tab ${tabId} detached from window ${windowId}`)
+          // forget about this tab in the history of active tabs
+          activeTabHistory.clearTabFromWindow(windowId, tabId)
+          // handle closed tab being the current active tab for window
+          if (tabValue.get('active')) {
+            // set the next active tab, if different from what muon will have set to
+            // Muon sets it to the next index (immediately above or below)
+            // But this app can be configured to select the parent tab,
+            // or the last active tab
+            let nextTabId = api.getNextActiveTabId(windowId, tabId)
+            if (nextTabId != null) {
+              api.setActive(nextTabId)
+            }
+          }
+        }
       })
 
       tab.on('set-active', (sender, isActive) => {
@@ -696,23 +710,6 @@ const api = {
         }
       })
 
-      tab.on('tab-strip-empty', () => {
-        // It's only safe to close a window when the last web-contents tab has been
-        // re-attached.  A detach which already happens by this point is not enough.
-        // Otherwise the closing window will destroy the tab web-contents and it'll
-        // lead to a dead tab.  The destroy will happen because the old main window
-        // webcontents is still the embedder.
-        const tabValue = getTabValue(tabId)
-        const windowId = tabValue.get('windowId')
-        tab.once('did-attach', () => {
-          appActions.tabStripEmpty(windowId)
-        })
-      })
-
-      tab.on('did-detach', (e, oldTabId) => {
-
-      })
-
       tab.on('did-attach', (e, tabId) => {
         appActions.tabAttached(tab.getId())
       })
@@ -745,19 +742,6 @@ const api = {
         const tabValue = getTabValue(tabId)
         if (tabValue) {
           const windowId = tabValue.get('windowId')
-          // forget about this tab in the history of active tabs
-          activeTabHistory.clearTabFromWindow(windowId, tabId)
-          // handle closed tab being the current active tab for window
-          if (tabValue.get('active')) {
-            // set the next active tab, if different from what muon will have set to
-            // Muon sets it to the next index (immediately above or below)
-            // But this app can be configured to select the parent tab,
-            // or the last active tab
-            let nextTabId = api.getNextActiveTabId(windowId, tabId)
-            if (nextTabId != null) {
-              api.setActive(nextTabId)
-            }
-          }
           // let the state know
           appActions.tabClosed(tabId, windowId)
         }
@@ -1085,109 +1069,76 @@ const api = {
     }
   },
 
-  moveTo: async (state, tabId, frameOpts, browserOpts, toWindowId) => {
+  moveTo: (state, tabId, frameOpts, browserOpts, toWindowId) => {
 
     if (shouldDebugTabEvents) {
-      console.log(`Tab ${tabId}] tabs.moveTo(window: ${toWindowId})`)
+      console.log(`Tab [${tabId}] tabs.moveTo(window: ${toWindowId})`)
     }
     frameOpts = makeImmutable(frameOpts)
     browserOpts = makeImmutable(browserOpts)
     const tab = webContentsCache.getWebContents(tabId)
-    if (tab && !tab.isDestroyed()) {
-      const tabValue = getTabValue(tabId)
-      // make sure frame has latest guestinstanceid
-      const guestInstanceId = tabValue && tabValue.get('guestInstanceId')
-      if (guestInstanceId != null) {
-        frameOpts.set('guestInstanceId', guestInstanceId)
-      }
-      // don't move it to the same window
-      const currentWindowId = tabValue && tabValue.get('windowId')
-      if (toWindowId != null && currentWindowId === toWindowId) {
-        return
-      }
-      // If there's only one tab and we're dragging outside the window, then disallow
-      // a new window to be created.
-      if (toWindowId == null || toWindowId === -1) {
-        const windowTabCount = tabState.getTabsByWindowId(state, currentWindowId).size
-        if (windowTabCount === 1) {
-          return
-        }
-      }
-      // If the current tab is pinned, then don't allow to drag out
-      if (tabValue.get('pinned')) {
-        return
-      }
-      // create a new window
-      if (toWindowId == null || toWindowId === -1) {
-        // this will eventually call tab.moveTo when the window is known
-        appActions.newWindow(frameOpts, browserOpts)
-      } else {
-        const toIndex = frameOpts.get('index')
-        // invalid index? add to end of tab strip by specifying -1 index
-        if (toIndex == null || toIndex === -1) {
-          toIndex = -1
-        }
-        const win = getWindow(toWindowId)
-        if (!win || win.isDestroyed()) {
-          console.log('Error: invalid window to move tab to')
-          return
-        }
-        notifyWindowWebContentsAdded(toWindowId, frameOpts.toJS(), tabValue.toJS())
-        tab.moveTo(toIndex, toWindowId)
-      }
-
-
-      // const onceDetached = () => {
-      //   if (shouldDebugTabEvents) {
-      //     console.log(`Tab [${tabId}] detached tab guestinstance id`, tab.guestInstanceId)
-      //   }
-      //   frameOpts = frameOpts.set('guestInstanceId', tab.guestInstanceId)
-      //   // handle tab has made it to the new window
-      //   tab.once('did-attach', () => {
-      //     if (shouldDebugTabEvents) {
-      //       console.log(`Tab [${tabId}] attached to a new window, so setting the desired index`)
-      //     }
-      //     // put the tab in the desired index position
-      //     const index = frameOpts.get('index')
-      //     if (index !== undefined) {
-      //       api.setTabIndex(tabId, frameOpts.get('index'))
-      //     }
-      //   })
-      //   // handle tab has detached from window
-      //   // handle tab was the active tab of the window
-      //   if (tabValue.get('active')) {
-      //     // decide and set next-active-tab muon override
-      //     const nextActiveTabIdForOldWindow = api.getNextActiveTabId(currentWindowId, tabId)
-      //     if (nextActiveTabIdForOldWindow !== null) {
-      //       api.setActive(nextActiveTabIdForOldWindow)
-      //     }
-      //   }
-      //   // tell another window to add the tab, this will cause the tab to render a webview and
-      //   // then attach to that window
-      //   if (toWindowId == null || toWindowId === -1) {
-      //     if (shouldDebugTabEvents) {
-      //       console.log('creating new window for detached tab')
-      //     }
-      //     // move tab to a new window
-      //     frameOpts = frameOpts.set('index', 0)
-      //     appActions.newWindow(frameOpts, browserOpts)
-      //   } else {
-      //     // Ask for tab to be attached (via frame state and webview) to
-      //     // specified window
-      //     frameOpts = frameOpts.set('active')
-      //     console.log(`sending ${tabId} to window ${toWindowId} with guest ${frameOpts.get('guestInstanceId')} from tab guest ${tab.guestInstanceId}`)
-      //     notifyWindowWebContentsAdded(toWindowId, frameOpts.toJS(), tabValue.toJS())
-      //   }
-      // }
-
-      // if (tab.attached) {
-      //   // perform detach from current window
-      //   tab.detach(onceDetached)
-      // } else {
-      //   // not attached, just move to new window
-      //   onceDetached()
-      // }
+    if (!tab || tab.isDestroyed()) {
+      return
     }
+    const tabValue = getTabValue(tabId)
+    // don't move it to the same window
+    const currentWindowId = tabValue && tabValue.get('windowId')
+    if (toWindowId != null && currentWindowId === toWindowId) {
+      return
+    }
+    // If there's only one tab and we're dragging outside the window, then disallow
+    // a new window to be created.
+    if (toWindowId == null || toWindowId === -1) {
+      const windowTabCount = tabState.getTabsByWindowId(state, currentWindowId).size
+      if (windowTabCount === 1) {
+        return
+      }
+    }
+    // If the current tab is pinned, then don't allow to drag out
+    if (tabValue.get('pinned')) {
+      return
+    }
+    //
+    // perform the actual moving
+    //
+
+    // It's only safe to close a window when the last web-contents tab has been
+    // re-attached.  A tab-removed-at or tab-strip-empty is not enough.
+    // Otherwise the closing window will destroy the tab web-contents by the time it gets to the new window.
+    // The destroy will happen because the old main window
+    // webcontents is still the embedder.
+    tab.once('did-attach', () => {
+      // let the window know the tab has moved to another window, so
+      // it is free to close
+      const win = getWindow(currentWindowId)
+      if (win && !win.isDestroyed()) {
+        win.webContents.emit('detached-tab-new-window')
+      }
+    })
+    // make sure frame has latest guestinstanceid
+    const guestInstanceId = tabValue && tabValue.get('guestInstanceId')
+    if (guestInstanceId != null) {
+      frameOpts.set('guestInstanceId', guestInstanceId)
+    }
+    // create a new window if required
+    if (toWindowId == null || toWindowId === -1) {
+      // this will eventually call tab.moveTo when the window is known
+      appActions.newWindow(frameOpts, browserOpts)
+      return
+    }
+    // use existing window
+    let toIndex = frameOpts.get('index')
+    // invalid index? add to end of tab strip by specifying -1 index
+    if (toIndex == null || toIndex === -1) {
+      toIndex = -1
+    }
+    const win = getWindow(toWindowId)
+    if (!win || win.isDestroyed()) {
+      console.error('Error: invalid window to move tab to')
+      return
+    }
+    notifyWindowWebContentsAdded(toWindowId, frameOpts.toJS(), tabValue.toJS())
+    tab.moveTo(toIndex, toWindowId)
   },
 
   maybeCreateTab: (state, createProperties) => {
