@@ -702,7 +702,7 @@ const api = {
         }
 
         // update state
-        appActions.tabReplaced(tabId, tabValue, tabValue.get('windowId'), !isPlaceholder)
+        appActions.tabReplaced(tabId, tabValue, windowId, !isPlaceholder)
         if (!isPlaceholder) {
           // update in-memory caches
           webContentsCache.tabIdChanged(tabId, newTabId)
