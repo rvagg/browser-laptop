@@ -290,7 +290,6 @@ const api = {
           }
         })
         win.webContents.on('tab-strip-empty', () => {
-          win.hide()
           // must wait for pending tabs to be attached to new window before closing
           // TODO(petemill): race condition if multiple different tabs are moved at the same time
           // ...tab-strip-empty may fire before all of those tabs are inserted to new window
