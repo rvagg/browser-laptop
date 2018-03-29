@@ -54,31 +54,16 @@ const windowActions = {
 
   /**
    * Dispatches a message to change the frame tabId
-   * @param {Object} frameProps - The frame properties
    * @param {Number} oldTabId - the current tabId
    * @param {Number} newTabId - the new tabId
    */
-  frameTabIdChanged: function (frameProps, oldTabId, newTabId) {
+  frameTabReplaced: function (oldTabId, newTabId, guestInstanceId, isPlaceholder) {
     dispatch({
-      actionType: windowConstants.WINDOW_FRAME_TAB_ID_CHANGED,
-      frameProps,
+      actionType: windowConstants.WINDOW_FRAME_TAB_REPLACED,
       oldTabId,
-      newTabId
-    })
-  },
-
-  /**
-   * Dispatches a message when the guestInstanceId changes for a frame
-   * @param {Object} frameProps - The frame properties
-   * @param {Number} oldGuestInstanceId - the current guestInstanceId
-   * @param {Number} newGuestInstanceId - the new guestInstanceId
-   */
-  frameGuestInstanceIdChanged: function (frameProps, oldGuestInstanceId, newGuestInstanceId) {
-    dispatch({
-      actionType: windowConstants.WINDOW_FRAME_GUEST_INSTANCE_ID_CHANGED,
-      frameProps,
-      oldGuestInstanceId,
-      newGuestInstanceId
+      newTabId,
+      isPlaceholder,
+      guestInstanceId
     })
   },
 
