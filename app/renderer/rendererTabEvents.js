@@ -57,6 +57,14 @@ const api = module.exports = {
         windowActions.removeFrame(tabId)
         break
       }
+      case 'tab-replaced-at': {
+        const newTabId = e.replacementTabId
+        const isPlaceholder = e.isPlaceholder
+        const guestInstanceId = e.guestInstanceId
+        console.log('tab replaced at', tabId, newTabId, guestInstanceId, isPlaceholder)
+        windowActions.frameTabReplaced(tabId, newTabId, guestInstanceId, isPlaceholder)
+        break
+      }
       case 'content-blocked': {
         if (e.details[0] === 'javascript' && e.details[1]) {
           windowActions.setBlockedBy(tabId, 'noScript', e.details[1])
