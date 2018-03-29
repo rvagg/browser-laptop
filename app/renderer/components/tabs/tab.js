@@ -52,7 +52,7 @@ const UrlUtil = require('../../../../js/lib/urlutil')
 const {getSetting} = require('../../../../js/settings')
 
 // TODO(petemill) Make this a Debug menu option
-const visualTabIdDebug = true
+const visualTabIdDebug = false
 
 class Tab extends React.Component {
   constructor (props) {
