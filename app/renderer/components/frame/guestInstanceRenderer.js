@@ -26,11 +26,12 @@ class GuestInstanceRenderer extends React.Component {
     const frameKey = ownProps.frameKey
     const frame = frameStateUtil.getFrameByKey(state.get('currentWindow'), frameKey)
     const location = frame && frame.get('location')
+    const frameIsReady = frame && frame.get('guestIsReady') === true
     const frameIsInWindow = frame && frame.get('tabStripWindowId') === getCurrentWindowId()
 
     const props = {
-      guestInstanceId: frameIsInWindow && frame.get('guestInstanceId'),
-      tabId: frameIsInWindow && frame.get('tabId'),
+      guestInstanceId: frameIsInWindow && frameIsReady && frame.get('guestInstanceId'),
+      tabId: frameIsInWindow && frameIsReady && frame.get('tabId'),
       isDefaultNewTabLocation: location === 'about:newtab',
       isBlankLocation: location === 'about:blank',
       isPlaceholder: frame && frame.get('isPlaceholder'),
