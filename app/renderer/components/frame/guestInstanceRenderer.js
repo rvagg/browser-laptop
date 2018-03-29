@@ -24,9 +24,10 @@ class GuestInstanceRenderer extends React.Component {
 
   mergeProps (state, ownProps) {
     const frameKey = ownProps.frameKey
+    const isPreview = ownProps.isPreview
     const frame = frameStateUtil.getFrameByKey(state.get('currentWindow'), frameKey)
     const location = frame && frame.get('location')
-    const frameIsReady = frame && frame.get('guestIsReady') === true
+    const frameIsReady = isPreview || (frame && frame.get('guestIsReady') === true)
     const frameIsInWindow = frame && frame.get('tabStripWindowId') === getCurrentWindowId()
 
     const props = {
