@@ -248,9 +248,6 @@ const frameReducer = (state, action, immutableAction) => {
       state = state.setIn(['ui', 'siteInfo', 'isVisible'],
         isPotentialPhishingUrl(action.location) && frameStateUtil.isFrameKeyActive(state, action.key))
       break
-    case windowConstants.WINDOW_CLOSE_FRAME:
-      state = closeFrame(state, action)
-      break
     case windowConstants.WINDOW_CLOSE_FRAMES:
       let closedFrames = new Immutable.List()
       action.framePropsList.forEach((frameProps) => {
