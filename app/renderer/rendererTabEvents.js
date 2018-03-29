@@ -133,7 +133,6 @@ const api = module.exports = {
         break
       }
       case 'load-start': {
-        console.log(tabId, 'loadStart', e.url)
         const frame = getFrameByTabId(tabId)
         if (
           !frame.isEmpty() &&
@@ -149,6 +148,7 @@ const api = module.exports = {
               // icon.
               break
           }
+          console.log(tabId, 'loadStart', e.url)
           windowActions.onWebviewLoadStart(frame, e.url)
         }
         break
