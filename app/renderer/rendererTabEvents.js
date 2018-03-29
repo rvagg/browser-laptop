@@ -287,7 +287,7 @@ const api = module.exports = {
           isSecure = false
           const location = frame.get('location')
           const parsedUrl = urlParse(location)
-          ipcRenderer.send(messages.CHECK_CERT_ERROR_ACCEPTED, parsedUrl.host, tabId)
+          electron.ipcRenderer.send(messages.CHECK_CERT_ERROR_ACCEPTED, parsedUrl.host, tabId)
         }
 
         if (e.securityInfo.securityLevel === 'ev-secure') {
