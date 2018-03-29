@@ -173,7 +173,7 @@ const api = module.exports = {
         const frame = getFrameByTabId(tabId)
         loadEnd(tabId, frame, true, e.validatedURL, false)
         if (getSiteSettings(frame).get('runInsecureContent')) {
-          const origin = tabState.getVisibleOrigin(state, tabId)
+          const origin = tabState.getVisibleOrigin(appStore.state, tabId)
           const isPrivate = frame.get('isPrivate', false)
           appActions.removeSiteSetting(origin, 'runInsecureContent', isPrivate)
         }
