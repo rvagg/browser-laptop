@@ -6,6 +6,7 @@ const appStore = require('../../js/stores/appStoreRenderer')
 
 const windowActions = require('../../js/actions/windowActions')
 const appActions = require('../../js/actions/appActions')
+const tabActions = require('../common/actions/tabActions')
 
 const tabState = require('../common/state/tabState')
 const frameStateUtil = require('../../js/state/frameStateUtil')
@@ -511,7 +512,6 @@ function allowRunningWidevinePlugin (tabId, frame) {
   }
   return false
 }
-
 
 /**
  * Shows a Widevine CtP notification if Widevine is installed and enabled.
