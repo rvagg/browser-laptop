@@ -786,13 +786,10 @@ const api = {
           width: size[0]
         },
         appState: appStore.getLastEmittedState().toJS(),
-        windowState,
-        // TODO: dispatch frame create action on appStore, as this is what the window does anyway
-        // ...and do it after the window has rendered
-        frames
+        windowState
       })
-
       e.sender.sendShared(messages.INITIALIZE_WINDOW, mem)
+      openFramesInWindow(win, frames, windowState && windowState.activeFrameKey)
       // TODO: remove callback, use store action, returning a new window UUID from this function
       if (cb) {
         cb()
