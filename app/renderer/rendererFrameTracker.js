@@ -24,13 +24,12 @@ module.exports = function trackFrameChanges () {
       // does it exist in the last version of state?
       const lastFrame = frameState.getByFrameKey(lastState, frameKey)
       if (!lastFrame || !lastFrame.delete('lastAccessedTime').equals(frame.delete('lastAccessedTime'))) {
-        console.log(`frame changed: ${frameKey}`)
         changedFrames.push(Immutable.Map().set('frame', frame))
       }
     }
     if (changedFrames.length) {
       appActions.framesChanged(changedFrames)
     }
-    console.log(`Spent ${performance.now() - t0}ms figuring out frame changes`)
+    console.log(`Spent ${performance.now() - t0}ms figuring out frame changes (${changedFrames.length} changed)`)
   }, 200))
 }
