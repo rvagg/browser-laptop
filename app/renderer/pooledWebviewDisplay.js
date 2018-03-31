@@ -152,8 +152,8 @@ module.exports = class WebviewDisplay {
 
   swapWebviewOnAttach (tabId, toAttachWebview, lastAttachedWebview) {
     console.log('swapWebviewOnAttach', tabId)
-    console.group(`attach ${tabId}`)
-    console.log(`Using webview #${toAttachWebview.dataset.webviewReplaceCount}`)
+    console.group(`swapWebviewOnAttach: attach ${tabId}`)
+    console.log(`swapWebviewOnAttach: Using webview #${toAttachWebview.dataset.webviewReplaceCount}`)
 
     this.attachingToGuestInstanceId = tabId
     const t0 = window.performance.now()
@@ -161,7 +161,7 @@ module.exports = class WebviewDisplay {
 
     // fn for guest did attach, and workaround to force paint
     const onToAttachDidAttach = () => {
-      console.log(`webview did-attach ${window.performance.now() - t0}ms`)
+      console.log(`swapWebviewOnAttach: webview did-attach ${window.performance.now() - t0}ms`)
       // TODO(petemill) remove ugly workaround as <webview>
       // will often not paint guest unless
       // size has changed or forced to.
@@ -178,7 +178,7 @@ module.exports = class WebviewDisplay {
       // if we have decided to show a different guest in the time it's taken to attach and show
       // then do not show the intermediate, instead detach it and wait for the next attach
       if (tabId !== this.attachingToGuestInstanceId) {
-        console.log('detaching guest from just attached view because it was not the desired guest anymore')
+        console.log('swapWebviewOnAttach: detaching guest from just attached view because it was not the desired guest anymore')
         remote.unregisterEvents(tabId, tabEventHandler)
         await toAttachWebview.detachGuest()
         // if it happens to be the webview which is already being shown
@@ -186,17 +186,17 @@ module.exports = class WebviewDisplay {
           // release everything and do not continue
           this.webviewPool.push(toAttachWebview)
           this.attachingToGuestInstanceId = null
-          console.log('Asked to show already-attached view, so leaving that alone and returning new attached to pool')
+          console.log('swapWebviewOnAttach: Asked to show already-attached view, so leaving that alone and returning new attached to pool')
           console.groupEnd()
           return
         }
         // start again, but with different guest
-        console.log('Asked to show a different guest than the one we just attached, continuing with that one')
+        console.log('swapWebviewOnAttach: Asked to show a different guest than the one we just attached, continuing with that one')
         console.groupEnd()
         this.swapWebviewOnAttach(this.attachingToGuestInstanceId, toAttachWebview, lastAttachedWebview)
         return
       }
-      console.log(`webview showing ${window.performance.now() - t0}ms`)
+      console.log(`swapWebviewOnAttach: webview waiting for paint ${window.performance.now() - t0}ms`)
 
       // At the point where we are attached to the guest we *still* want to be displaying.
       // So, show it.
@@ -205,8 +205,9 @@ module.exports = class WebviewDisplay {
       await animationFrame()
       await animationFrame()
       await animationFrame()
-      console.log('unregisterEvents', tabId)
+      console.log('swapWebviewOnAttach: unregisterEvents', tabId)
       remote.unregisterEvents(tabId, tabEventHandler)
+      console.log(`swapWebviewOnAttach: webview finished waiting for paint, showing... ${window.performance.now() - t0}ms`)
       toAttachWebview.classList.add(this.classNameWebviewAttached)
       // If we are already showing another frame, we wait for this new frame to display before
       // hiding (and removing) the other frame's webview, so that we avoid a white flicker
@@ -215,7 +216,7 @@ module.exports = class WebviewDisplay {
         // finalize display classes
         lastAttachedWebview.classList.remove(this.classNameWebviewAttached)
         toAttachWebview.classList.remove(this.classNameWebviewAttaching)
-        console.log('detaching guest from last attached webview...')
+        console.log('swapWebviewOnAttach: detaching guest from last attached webview...')
         // TODO: don't neccessarily need to do this, since next attach should detach guest
         await lastAttachedWebview.detachGuest()
         // return to the pool,
@@ -231,6 +232,7 @@ module.exports = class WebviewDisplay {
       console.groupEnd()
       // perform next attach if there's one waiting
       if (pendingGuestInstanceId !== tabId) {
+        console.log('swapWebviewOnAttach - another attach pending, continuing with that attach request')
         this.swapWebviewOnAttach(pendingGuestInstanceId, this.getPooledWebview(), this.attachedWebview)
       } else {
         if (this.shouldFocusOnAttach) {
@@ -242,7 +244,7 @@ module.exports = class WebviewDisplay {
 
     // we may get a will-destroy before a did-attach, if that happens, abandon
     const onDestroyedInsteadOfAttached = () => {
-      console.log('destroyed instead of attached...')
+      console.log('swapWebviewOnAttach: destroyed instead of attached...')
       // continue with next attach request if we've had one in the meantime
       if (this.attachingToGuestInstanceId !== tabId) {
         // if it happens to be the webview which is already being shown
@@ -250,12 +252,12 @@ module.exports = class WebviewDisplay {
           // release everything and do not continue
           this.webviewPool.push(toAttachWebview)
           this.attachingToGuestInstanceId = null
-          console.log('Asked to show already-attached view, so leaving that alone and returning new attached to pool')
+          console.log('swapWebviewOnAttach: Asked to show already-attached view, so leaving that alone and returning new attached to pool')
           console.groupEnd()
           return
         }
         // start again, but with different guest
-        console.log('Asked to show a different guest than the one we just attached, continuing with that one')
+        console.log('swapWebviewOnAttach: Asked to show a different guest than the one we just attached, continuing with that one')
         console.groupEnd()
         this.swapWebviewOnAttach(this.attachingToGuestInstanceId, toAttachWebview, lastAttachedWebview)
         return
@@ -267,7 +269,7 @@ module.exports = class WebviewDisplay {
     }
 
     // monitor for destroy or attach after we ask for attach
-    console.log('getting web contents for', tabId, '...')
+    console.log('swapWebviewOnAttach: getting web contents for', tabId, '...')
     let handled = false
     const tabEventHandler = (event) => {
       console.log('pooled got event for tab', tabId, event.type)
@@ -294,7 +296,7 @@ module.exports = class WebviewDisplay {
           break
         case 'did-detach':
           // we want to know if the tab has detached before we're done
-          console.error('webview detached whilst waiting for attach!')
+          console.error('swapWebviewOnAttach: webview detached whilst waiting for attach!')
           break
       }
     }
@@ -310,10 +312,10 @@ module.exports = class WebviewDisplay {
       }
       // use the guest instance id
       const guestInstanceId = webContents.guestInstanceId
-      console.log('attaching active guest instance ', guestInstanceId, 'to webview', toAttachWebview)
+      console.log('swapWebviewOnAttach: attaching active guest instance ', guestInstanceId, 'to webview', toAttachWebview)
       // setImmediate is a bit of a hacky way to ensure that registerEvents handler is registered
       setImmediate(() => toAttachWebview.attachGuest(guestInstanceId, webContents))
-      console.log('Waiting....')
+      console.log('swapWebviewOnAttach: Waiting....')
       // another workaround for not getting did-attach on webview, set a timeout and then hide / show view
       timeoutHandleBumpView = window.setTimeout(ensurePaintWebviewFirstAttach.bind(null, toAttachWebview), 2000)
     })
