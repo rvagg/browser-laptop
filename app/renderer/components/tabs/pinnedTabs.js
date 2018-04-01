@@ -4,7 +4,6 @@
 
 const React = require('react')
 const ReactDOM = require('react-dom')
-const Immutable = require('immutable')
 const {StyleSheet, css} = require('aphrodite/no-important')
 
 // Components
@@ -27,6 +26,7 @@ const dnd = require('../../../../js/dnd')
 const dndData = require('../../../../js/dndData')
 const frameStateUtil = require('../../../../js/state/frameStateUtil')
 const {isIntermediateAboutPage} = require('../../../../js/lib/appUrlUtil')
+const {getCurrentWindowId} = require('../../currentWindow')
 
 class PinnedTabs extends React.Component {
   constructor (props) {
