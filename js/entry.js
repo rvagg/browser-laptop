@@ -98,8 +98,12 @@ const rendererTabEvents = require('../app/renderer/rendererTabEvents')
 electron.remote.registerAllWindowTabEvents(e => {
   const eventName = e.type
   const tabId = e.eventTabId
-  //console.log('registerAllWindowTabEvents', tabId, eventName)
-  rendererTabEvents.handleTabEvent(tabId, eventName, e)
+  try {
+    rendererTabEvents.handleTabEvent(tabId, eventName, e)
+  } catch (e) {
+    console.error(`Error handling event ${eventName} for tab ${tabId}`)
+    console.error(e)
+  }
 })
 
 ipc.on('new-web-contents-added', (e, frameOpts, newTabValue) => {
