@@ -27,6 +27,7 @@ const dnd = require('../../../../js/dnd')
 const dndData = require('../../../../js/dndData')
 const frameStateUtil = require('../../../../js/state/frameStateUtil')
 const {isIntermediateAboutPage} = require('../../../../js/lib/appUrlUtil')
+const {getCurrentWindowId} = require('../../currentWindow')
 
 class PinnedTabs extends React.Component {
   constructor (props) {
